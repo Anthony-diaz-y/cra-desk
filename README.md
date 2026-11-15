@@ -24,8 +24,9 @@ Compliance desk for the **EU Cyber Resilience Act** (Regulation (EU) 2024/2847),
 |---|---|---|
 | 0 | Monorepo, PostgreSQL, Spring Boot skeleton | ✅ |
 | 1 | Product catalog API (products + versions), validation, RFC 9457 errors | ✅ |
-| 2 | Identity & security: session login, invitations, read-only demo, API keys, per-organization isolation, waitlist | ✅ 85 integration tests |
-| 3–9 | SBOM ingest, vulnerability matching, Go CLI, reporting + audit, web, DevOps | planned |
+| 2 | Identity & security: session login, invitations, read-only demo, API keys, per-organization isolation, waitlist | ✅ |
+| 3 | SBOM ingest: CycloneDX JSON 1.4–1.6 per product version, validation, size limits, components by purl | ✅ 118 tests |
+| 4–9 | Vulnerability matching, Go CLI, reporting + audit, web, DevOps | planned |
 
 ## Local development
 
@@ -44,6 +45,7 @@ set -a && . ../.env && set +a && ./mvnw spring-boot:run
 | `CRADESK_ADMIN_TOKEN` | Platform admin token (`X-Admin-Token`), at least 32 characters; empty disables admin endpoints | empty |
 | `CRADESK_DEMO_ENABLED` | Seed the read-only demo account on startup | `true` |
 | `SESSION_COOKIE_SECURE` | Send the session cookie only over HTTPS (set `true` in production) | `false` |
+| `CRADESK_SBOM_MAX_BYTES` | Largest accepted SBOM upload, in bytes | `5242880` (5 MB) |
 
 ### Live demo
 
@@ -53,7 +55,21 @@ With the API running, from the repo root:
 set -a && . ./.env && set +a && bash scripts/demo.sh
 ```
 
-It opens the read-only demo (writes are 403), invites a manufacturer with the admin token, accepts the invitation, registers a product, creates an API key, calls the API with it, revokes it (401) and sends a "Request access" form (202).
+It opens the read-only demo (writes are 403), invites a manufacturer with the admin token, accepts the invitation, registers a product and a firmware version, creates an API key, uploads a CycloneDX SBOM with it as a CI pipeline would, reads the SBOM summary and components, shows an SPDX file being rejected (400), revokes the key (401) and sends a "Request access" form (202).
+
+## SBOM ingest
+
+- One CycloneDX JSON SBOM (spec 1.4, 1.5 or 1.6) per product version; uploading again replaces it atomically.
+- The body is read with a hard 5 MB cap (not trusting `Content-Length`), at most 20 000 components and 16 nesting levels.
+- Every component needs a name; a `purl`, when present, must be a valid package URL. All errors come back together with their JSON path.
+- Nested components are flattened, `metadata.component` (the product itself) is skipped, exact duplicates are dropped; components without a purl are kept and counted.
+- The original document and its SHA-256 are kept for the technical file (CRA Annex VII) and can be downloaded.
+
+```bash
+curl -X PUT "$API/api/products/$PRODUCT/versions/$VERSION/sbom" \
+  -H "Authorization: Bearer $CRADESK_API_KEY" \
+  -H 'Content-Type: application/vnd.cyclonedx+json' --data-binary @bom.json
+```
 
 ## Security model
 
@@ -89,6 +105,10 @@ All errors are RFC 9457 problem details. "Session" means a signed-in member; "ke
 | `POST` | `/api/products/{id}/versions` | session, key | 201 · 400 · 404 · 409 duplicate version |
 | `GET` | `/api/products/{id}/versions` | session, demo, key | 200, newest first · 404 |
 | `GET` | `/api/products/{id}/versions/{versionId}` | session, demo, key | 200 · 404 |
+| `PUT` | `/api/products/{id}/versions/{versionId}/sbom` | session, key | raw CycloneDX JSON body: 201 new · 200 replaced · 400 with `errors` · 404 · 413 over 5 MB · 415 not JSON |
+| `GET` | `/api/products/{id}/versions/{versionId}/sbom` | session, demo, key | 200 summary · 404 |
+| `GET` | `/api/products/{id}/versions/{versionId}/sbom/components?page=&size=` | session, demo, key | 200 page sorted by name (size 1–200) · 400 · 404 |
+| `GET` | `/api/products/{id}/versions/{versionId}/sbom/document` | session, demo, key | 200 original file · 404 |
 
 ## License
 

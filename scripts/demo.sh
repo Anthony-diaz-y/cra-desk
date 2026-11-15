@@ -2,6 +2,7 @@
 set -u
 API="${API:-http://localhost:8080}"
 ADMIN_TOKEN="${CRADESK_ADMIN_TOKEN:-}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
 RUN=$(date +%H%M%S)
 JAR=$(mktemp)
 LAST=$(mktemp)
@@ -25,13 +26,15 @@ call() {
   cat "$LAST"; printf '\n← HTTP %s\n' "$code"
 }
 
-# Hace una petición sin cookies usando una clave de API, muestra el cuerpo y el código.
+# Hace una petición sin cookies con una clave de API; opcionalmente envía un archivo como cuerpo.
 call_with_key() {
-  local key=$1 method=$2 path=$3
-  printf '\033[2m%s %s (Authorization: Bearer crd_…)\033[0m\n' "$method" "$path"
+  local key=$1 method=$2 path=$3 file=${4:-}
+  printf '\033[2m%s %s (Authorization: Bearer crd_…) %s\033[0m\n' "$method" "$path" "$file"
+  local args=(-s -o "$LAST" -w '%{http_code}' -X "$method" "$API$path" -H "Authorization: Bearer $key")
+  [ -n "$file" ] && args+=(-H 'Content-Type: application/vnd.cyclonedx+json' --data-binary "@$file")
   local code
-  code=$(curl -s -o "$LAST" -w '%{http_code}' -X "$method" "$API$path" -H "Authorization: Bearer $key")
-  cat "$LAST"; printf '\n← HTTP %s\n' "$code"
+  code=$(curl "${args[@]}")
+  head -c 600 "$LAST"; printf '\n← HTTP %s\n' "$code"
 }
 
 # Extrae del último cuerpo recibido el valor de texto de un campo JSON.
@@ -55,7 +58,7 @@ call POST /api/auth/logout
 call GET /api/auth/csrf
 
 if [ -z "$ADMIN_TOKEN" ]; then
-  printf '\nSet CRADESK_ADMIN_TOKEN (same value as the API) to run the invitation and API key steps.\n'
+  printf '\nSet CRADESK_ADMIN_TOKEN (same value as the API) to run the invitation, API key and SBOM steps.\n'
   exit 0
 fi
 
@@ -72,22 +75,35 @@ step "7. Accept the invitation: company + account + session → 201"
 call POST /api/auth/accept-invitation \
   '{"code":"'"$INVITE"'","email":"maker-'"$RUN"'@example.com","password":"a-long-enough-password","organizationName":"Maker '"$RUN"' GmbH"}'
 
-step "8. Register an IoT product in the new company → 201"
+step "8. Register an IoT product → 201 and its firmware version 1.0.0 → 201"
 call POST /api/products '{"name":"Smart Lock","productClass":"IMPORTANT_CLASS_I"}'
+PRODUCT=$(field id)
+call POST "/api/products/$PRODUCT/versions" '{"version":"1.0.0","releasedAt":"2026-11-01"}'
+VERSION=$(field id)
 
 step "9. Create an API key for the CLI → 201 (shown only once)"
 call POST /api/api-keys '{"name":"CI pipeline"}'
 KEY=$(field key)
 KEY_ID=$(field id)
 
-step "10. The CLI calls the API with the key, no cookies → 200"
-call_with_key "$KEY" GET /api/products
+step "10. The CI pipeline uploads the CycloneDX SBOM with the key → 201"
+call_with_key "$KEY" PUT "/api/products/$PRODUCT/versions/$VERSION/sbom" "$HERE/sample-sbom.cdx.json"
 
-step "11. Revoke the key → 204, then the same key → 401"
+step "11. SBOM summary → 200 and the first page of components → 200"
+call GET "/api/products/$PRODUCT/versions/$VERSION/sbom"
+call GET "/api/products/$PRODUCT/versions/$VERSION/sbom/components?size=3"
+
+step "12. An SPDX document is rejected with the reason → 400"
+SPDX=$(mktemp)
+printf '{"spdxVersion":"SPDX-2.3","SPDXID":"SPDXRef-DOCUMENT","name":"x","packages":[]}' > "$SPDX"
+call_with_key "$KEY" PUT "/api/products/$PRODUCT/versions/$VERSION/sbom" "$SPDX"
+rm -f "$SPDX"
+
+step "13. Revoke the key → 204, then the same key → 401"
 call DELETE "/api/api-keys/$KEY_ID"
 call_with_key "$KEY" GET /api/products
 
-step "12. Public 'Request access' form → 202"
+step "14. Public 'Request access' form → 202"
 call POST /api/access-requests '{"email":"curious-'"$RUN"'@example.com","company":"Curious Devices"}'
 
 printf '\n\033[1;32m✔ Demo finished.\033[0m\n'
