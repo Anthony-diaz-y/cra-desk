@@ -10,7 +10,7 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 @Configuration
-@EnableConfigurationProperties({ OsvProperties.class, KevProperties.class })
+@EnableConfigurationProperties({ OsvProperties.class, KevProperties.class, ScanProperties.class })
 public class VulnsConfig {
 
     static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);

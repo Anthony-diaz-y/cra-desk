@@ -38,6 +38,10 @@ cradesk:
     max-bytes: ${CRADESK_SBOM_MAX_BYTES:5242880}
   osv:
     base-url: ${CRADESK_OSV_BASE_URL:https://api.osv.dev}
+  scan:
+    scheduler-enabled: ${CRADESK_SCAN_SCHEDULER_ENABLED:true}
+    poll-interval: PT30S
+    daily-cron: "0 0 3 * * *"
   kev:
     url: ${CRADESK_KEV_URL:https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json}
 

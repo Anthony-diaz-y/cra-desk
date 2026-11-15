@@ -29,8 +29,8 @@ import io.cradesk.api.support.TestTenants;
 import io.cradesk.api.support.TestTenants.TestTenant;
 import io.cradesk.api.support.TestcontainersConfiguration;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "cradesk.admin.token="
-        + TestTenants.ADMIN_TOKEN)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = { "cradesk.admin.token=" + TestTenants.ADMIN_TOKEN,
+        "cradesk.scan.scheduler-enabled=false" })
 @Import({ TestcontainersConfiguration.class, TestTenants.class })
 class SbomChunkedUploadIT {
 
