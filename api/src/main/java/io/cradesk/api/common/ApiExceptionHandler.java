@@ -86,6 +86,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    // Responde 413 en formato problem details cuando el cuerpo supera el límite.
+    @ExceptionHandler(PayloadTooLargeException.class)
+    ProblemDetail payloadTooLarge(PayloadTooLargeException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONTENT_TOO_LARGE, e.getMessage());
+        problem.setTitle("Payload too large");
+        return problem;
+    }
+
     // Responde 409 en formato problem details.
     @ExceptionHandler(ConflictException.class)
     ProblemDetail conflict(ConflictException e) {

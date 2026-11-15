@@ -9,6 +9,11 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 500
+        order_inserts: true
   web:
     locale: en
     locale-resolver: fixed
@@ -29,6 +34,8 @@ cradesk:
     token: ${CRADESK_ADMIN_TOKEN:}
   demo:
     enabled: ${CRADESK_DEMO_ENABLED:true}
+  sbom:
+    max-bytes: ${CRADESK_SBOM_MAX_BYTES:5242880}
 
 management:
   endpoints:

@@ -116,6 +116,22 @@ public class ProductService {
                 .orElseThrow(() -> new VersionNotFoundException(versionId));
     }
 
+    // Bloquea el producto de la empresa actual y devuelve su versión, o lanza 404 si alguno no existe.
+    @Transactional
+    public ProductVersion lockVersion(UUID productId, UUID versionId) {
+        findForUpdate(productId);
+        return versions.findByIdAndProductId(versionId, productId)
+                .orElseThrow(() -> new VersionNotFoundException(versionId));
+    }
+
+    // Devuelve la versión de un producto de la empresa actual, o lanza 404 si alguno no existe.
+    @Transactional(readOnly = true)
+    public ProductVersion findVersion(UUID productId, UUID versionId) {
+        find(productId);
+        return versions.findByIdAndProductId(versionId, productId)
+                .orElseThrow(() -> new VersionNotFoundException(versionId));
+    }
+
     // Busca un producto de la empresa actual por id o lanza error si no existe o es de otra empresa.
     Product find(UUID id) {
         return products.findByIdAndOrganizationId(id, tenant.organizationId())
