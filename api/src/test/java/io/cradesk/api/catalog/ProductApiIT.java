@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Instant;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -23,13 +24,22 @@ import org.springframework.transaction.annotation.Transactional;
 import com.jayway.jsonpath.JsonPath;
 
 import io.cradesk.api.support.IntegrationTest;
+import io.cradesk.api.support.TestTenants;
 
 @IntegrationTest
 @Transactional
 class ProductApiIT {
 
 	@Autowired
+	TestTenants tenants;
+
 	MockMvc mvc;
+
+	// Inicia sesión como miembro de una empresa nueva antes de cada test.
+	@BeforeEach
+	void signIn() {
+		mvc = tenants.mvcFor(tenants.create("Acme"));
+	}
 
 	// Comprueba que crear un producto responde 201 con Location.
 	@Test

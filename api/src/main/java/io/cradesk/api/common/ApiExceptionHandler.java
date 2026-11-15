@@ -62,6 +62,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    // Responde 401 en formato problem details.
+    @ExceptionHandler(UnauthorizedException.class)
+    ProblemDetail unauthorized(UnauthorizedException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, e.getMessage());
+        problem.setTitle("Unauthorized");
+        return problem;
+    }
+
     // Responde 409 en formato problem details.
     @ExceptionHandler(ConflictException.class)
     ProblemDetail conflict(ConflictException e) {

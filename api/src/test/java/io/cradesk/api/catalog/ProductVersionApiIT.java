@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -20,13 +21,22 @@ import org.springframework.transaction.annotation.Transactional;
 import com.jayway.jsonpath.JsonPath;
 
 import io.cradesk.api.support.IntegrationTest;
+import io.cradesk.api.support.TestTenants;
 
 @IntegrationTest
 @Transactional
 class ProductVersionApiIT {
 
 	@Autowired
+	TestTenants tenants;
+
 	MockMvc mvc;
+
+	// Inicia sesión como miembro de una empresa nueva antes de cada test.
+	@BeforeEach
+	void signIn() {
+		mvc = tenants.mvcFor(tenants.create("Acme"));
+	}
 
 	// Comprueba que registrar una versión responde 201 con sus datos.
 	@Test

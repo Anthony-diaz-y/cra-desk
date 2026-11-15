@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -15,12 +16,21 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.jayway.jsonpath.JsonPath;
 
 import io.cradesk.api.support.IntegrationTest;
+import io.cradesk.api.support.TestTenants;
 
 @IntegrationTest
 class ProductTimestampsIT {
 
 	@Autowired
+	TestTenants tenants;
+
 	MockMvc mvc;
+
+	// Inicia sesión como miembro de una empresa nueva antes de cada test.
+	@BeforeEach
+	void signIn() {
+		mvc = tenants.mvcFor(tenants.create("Acme"));
+	}
 
 	@Autowired
 	JdbcTemplate jdbc;
@@ -28,7 +38,7 @@ class ProductTimestampsIT {
 	// Vacía las tablas del catálogo después de cada test.
 	@AfterEach
 	void cleanUp() {
-		jdbc.execute("TRUNCATE product_versions, products");
+		jdbc.execute("TRUNCATE organizations, products, product_versions CASCADE");
 	}
 
 	// Comprueba que las fechas del POST coinciden con las guardadas en la base de datos.
