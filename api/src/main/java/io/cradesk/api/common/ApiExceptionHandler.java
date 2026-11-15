@@ -15,6 +15,8 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import io.cradesk.api.catalog.DuplicateProductException;
+import io.cradesk.api.catalog.DuplicateVersionException;
+import io.cradesk.api.catalog.ProductHasVersionsException;
 import io.cradesk.api.catalog.ProductNotFoundException;
 
 /**
@@ -47,7 +49,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(DuplicateProductException.class)
+    @ExceptionHandler({ DuplicateProductException.class, DuplicateVersionException.class,
+            ProductHasVersionsException.class })
     ProblemDetail conflict(RuntimeException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
         problem.setTitle("Conflict");

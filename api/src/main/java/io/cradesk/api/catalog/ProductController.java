@@ -48,6 +48,19 @@ public class ProductController {
         return service.update(id, request);
     }
 
+    @PostMapping("/{id}/versions")
+    public ResponseEntity<VersionResponse> addVersion(@PathVariable UUID id,
+            @Valid @RequestBody VersionRequest request) {
+        VersionResponse created = service.addVersion(id, request);
+        return ResponseEntity.created(URI.create("/api/products/" + id + "/versions/" + created.id()))
+                .body(created);
+    }
+
+    @GetMapping("/{id}/versions")
+    public List<VersionResponse> listVersions(@PathVariable UUID id) {
+        return service.listVersions(id);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         service.delete(id);

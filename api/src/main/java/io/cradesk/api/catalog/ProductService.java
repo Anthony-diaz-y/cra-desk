@@ -18,9 +18,11 @@ public class ProductService {
     private static final Sort BY_NAME = Sort.by(Sort.Order.asc("name").ignoreCase());
 
     private final ProductRepository products;
+    private final ProductVersionRepository versions;
 
-    public ProductService(ProductRepository products) {
+    public ProductService(ProductRepository products, ProductVersionRepository versions) {
         this.products = products;
+        this.versions = versions;
     }
 
     @Transactional
@@ -56,7 +58,33 @@ public class ProductService {
 
     @Transactional
     public void delete(UUID id) {
-        products.delete(find(id));
+        Product product = find(id);
+        if (versions.existsByProductId(id)) {
+            throw new ProductHasVersionsException(id);
+        }
+        products.delete(product);
+    }
+
+    @Transactional
+    public VersionResponse addVersion(UUID productId, VersionRequest request) {
+        Product product = find(productId);
+        String version = request.version().trim();
+        if (versions.existsByProductIdAndVersion(productId, version)) {
+            throw new DuplicateVersionException(version);
+        }
+        try {
+            ProductVersion saved = versions.saveAndFlush(new ProductVersion(product, version, request.releasedAt()));
+            return toResponse(saved);
+        } catch (DataIntegrityViolationException e) {
+            throw new DuplicateVersionException(version);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<VersionResponse> listVersions(UUID productId) {
+        find(productId);
+        return versions.findByProductIdOrderByCreatedAtDesc(productId).stream()
+                .map(ProductService::toResponse).toList();
     }
 
     Product find(UUID id) {
@@ -80,5 +108,10 @@ public class ProductService {
     static ProductResponse toResponse(Product p) {
         return new ProductResponse(p.getId(), p.getName(), p.getDescription(), p.getProductClass(),
                 p.getCreatedAt(), p.getUpdatedAt());
+    }
+
+    static VersionResponse toResponse(ProductVersion v) {
+        return new VersionResponse(v.getId(), v.getProduct().getId(), v.getVersion(), v.getReleasedAt(),
+                v.getCreatedAt());
     }
 }
