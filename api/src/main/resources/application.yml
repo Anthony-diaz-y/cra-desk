@@ -11,6 +11,10 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  mvc:
+    # Spring's own errors (malformed JSON, wrong method, ...) also as RFC 9457 problem details
+    problemdetails:
+      enabled: true
   flyway:
     enabled: true
 
