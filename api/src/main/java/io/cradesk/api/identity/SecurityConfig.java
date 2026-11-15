@@ -19,7 +19,7 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextRepository;
 
 @Configuration
-@EnableConfigurationProperties(AdminProperties.class)
+@EnableConfigurationProperties({ AdminProperties.class, DemoProperties.class })
 public class SecurityConfig {
 
     // Define las reglas de acceso, la sesión, el CSRF y las respuestas 401 y 403 de toda la API.

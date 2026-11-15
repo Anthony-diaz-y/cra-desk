@@ -22,16 +22,19 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final SecurityContextRepository securityContextRepository;
     private final Clock clock;
+    private final DemoProperties demo;
     private final String dummyHash;
 
     // Recibe sus dependencias y prepara un hash ficticio para igualar el tiempo de respuesta.
     public AuthService(UserAccountRepository users, OrganizationRepository organizations,
-            PasswordEncoder passwordEncoder, SecurityContextRepository securityContextRepository, Clock clock) {
+            PasswordEncoder passwordEncoder, SecurityContextRepository securityContextRepository, Clock clock,
+            DemoProperties demo) {
         this.users = users;
         this.organizations = organizations;
         this.passwordEncoder = passwordEncoder;
         this.securityContextRepository = securityContextRepository;
         this.clock = clock;
+        this.demo = demo;
         this.dummyHash = passwordEncoder.encode("dummy-password-for-equal-timing");
     }
 
@@ -53,6 +56,18 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
         user.recordSuccessfulLogin();
+        startSession(principalOf(user), httpRequest, httpResponse);
+    }
+
+    // Abre una sesión como el usuario demo de solo lectura, o lanza 404 si la demo está desactivada.
+    @Transactional(readOnly = true)
+    public void demoLogin(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        if (!demo.enabled()) {
+            throw new DemoDisabledException();
+        }
+        UserAccount user = users.findByEmail(DemoProperties.EMAIL)
+                .filter(u -> u.getRole() == AccessRole.DEMO)
+                .orElseThrow(DemoDisabledException::new);
         startSession(principalOf(user), httpRequest, httpResponse);
     }
 

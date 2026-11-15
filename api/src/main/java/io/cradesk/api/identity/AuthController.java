@@ -44,6 +44,13 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    // Abre la sesión demo de solo lectura y responde 204.
+    @PostMapping("/demo")
+    public ResponseEntity<Void> demo(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        auth.demoLogin(httpRequest, httpResponse);
+        return ResponseEntity.noContent().build();
+    }
+
     // Acepta una invitación, crea la cuenta y la empresa, abre la sesión y responde 201.
     @PostMapping("/accept-invitation")
     @ResponseStatus(HttpStatus.CREATED)

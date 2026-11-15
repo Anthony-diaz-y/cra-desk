@@ -27,6 +27,8 @@ server:
 cradesk:
   admin:
     token: ${CRADESK_ADMIN_TOKEN:}
+  demo:
+    enabled: ${CRADESK_DEMO_ENABLED:true}
 
 management:
   endpoints:
