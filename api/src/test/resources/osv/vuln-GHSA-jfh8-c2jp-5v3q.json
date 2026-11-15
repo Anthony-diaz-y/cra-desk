@@ -1,0 +1,11 @@
+{
+  "id": "GHSA-jfh8-c2jp-5v3q",
+  "summary": "Remote code injection in Log4j",
+  "details": "Apache Log4j2 JNDI features do not protect against attacker controlled LDAP endpoints.",
+  "aliases": [ "CVE-2021-44228" ],
+  "modified": "2024-03-21T17:56:15.123456Z",
+  "published": "2021-12-10T00:40:56Z",
+  "database_specific": { "severity": "CRITICAL", "github_reviewed": true },
+  "severity": [ { "type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H" } ],
+  "affected": [ { "package": { "ecosystem": "Maven", "name": "org.apache.logging.log4j:log4j-core" } } ]
+}

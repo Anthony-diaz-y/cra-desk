@@ -36,6 +36,8 @@ cradesk:
     enabled: ${CRADESK_DEMO_ENABLED:true}
   sbom:
     max-bytes: ${CRADESK_SBOM_MAX_BYTES:5242880}
+  osv:
+    base-url: ${CRADESK_OSV_BASE_URL:https://api.osv.dev}
 
 management:
   endpoints:
