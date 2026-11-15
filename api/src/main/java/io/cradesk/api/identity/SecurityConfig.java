@@ -25,9 +25,11 @@ public class SecurityConfig {
     // Define las reglas de acceso, la sesión, el CSRF y las respuestas 401 y 403 de toda la API.
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ProblemDetailAuthHandlers problems,
-            SecurityContextRepository securityContextRepository, AdminProperties adminProperties) throws Exception {
+            SecurityContextRepository securityContextRepository, AdminProperties adminProperties,
+            ApiKeyService apiKeys) throws Exception {
         http
                 .addFilterBefore(new AdminTokenFilter(adminProperties, problems), AuthorizationFilter.class)
+                .addFilterBefore(new ApiKeyAuthenticationFilter(apiKeys, problems), AuthorizationFilter.class)
                 .securityContext(c -> c.securityContextRepository(securityContextRepository))
                 .csrf(c -> c.spa().ignoringRequestMatchers(SecurityConfig::carriesTokenHeader))
                 .httpBasic(c -> c.disable())
