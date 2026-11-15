@@ -6,12 +6,19 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 
@@ -26,6 +33,8 @@ public class SbomService {
 
     static final MediaType CYCLONEDX_JSON = MediaType.parseMediaType("application/vnd.cyclonedx+json");
     static final List<MediaType> ACCEPTED = List.of(MediaType.APPLICATION_JSON, CYCLONEDX_JSON);
+    static final int MAX_PAGE_SIZE = 200;
+    static final Sort BY_NAME_AND_VERSION = Sort.by("name", "version");
 
     private final CycloneDxParser parser;
     private final ProductService products;
@@ -78,6 +87,53 @@ public class SbomService {
                 .toList());
         components.flush();
         return new UploadResult(SbomSummary.of(sbom, productId), replaced);
+    }
+
+    // Devuelve el resumen del SBOM de una versión de la empresa actual, o 404 si no hay.
+    @Transactional(readOnly = true)
+    public SbomSummary summary(UUID productId, UUID versionId) {
+        return SbomSummary.of(find(productId, versionId), productId);
+    }
+
+    // Devuelve una página de componentes del SBOM ordenada por nombre y versión.
+    @Transactional(readOnly = true)
+    public ComponentPage components(UUID productId, UUID versionId, int page, int size) {
+        Map<String, String> errors = new LinkedHashMap<>();
+        if (page < 0) {
+            errors.put("page", "must be 0 or greater");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            errors.put("size", "must be between 1 and " + MAX_PAGE_SIZE);
+        }
+        if (!errors.isEmpty()) {
+            throw new InvalidPageException(errors);
+        }
+        Sbom sbom = find(productId, versionId);
+        Page<SbomComponent> result = components.findBySbomId(sbom.getId(),
+                PageRequest.of(page, size, BY_NAME_AND_VERSION));
+        return new ComponentPage(result.map(ComponentResponse::of).getContent(), page, size,
+                result.getTotalElements(), result.getTotalPages());
+    }
+
+    // Devuelve el documento original con un nombre de archivo limpio formado por producto y versión.
+    @Transactional(readOnly = true)
+    public SbomDocument document(UUID productId, UUID versionId) {
+        ProductVersion version = products.findVersion(productId, versionId);
+        Sbom sbom = sboms.findByProductVersionId(version.getId()).orElseThrow(SbomNotFoundException::new);
+        String filename = safeFileName(version.getProduct().getName() + "-" + version.getVersion()) + ".cdx.json";
+        return new SbomDocument(filename, sbom.getDocument().getBytes(StandardCharsets.UTF_8));
+    }
+
+    // Busca el SBOM de una versión de la empresa actual o lanza 404.
+    private Sbom find(UUID productId, UUID versionId) {
+        ProductVersion version = products.findVersion(productId, versionId);
+        return sboms.findByProductVersionId(version.getId()).orElseThrow(SbomNotFoundException::new);
+    }
+
+    // Deja en el nombre solo letras minúsculas, números, punto, guion y guion bajo.
+    static String safeFileName(String raw) {
+        String cleaned = raw.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9._-]+", "-").replaceAll("-{2,}", "-");
+        return cleaned.replaceAll("^[-.]+|-+$", "");
     }
 
     // Rechaza con 415 cualquier tipo de contenido que no sea JSON de CycloneDX.

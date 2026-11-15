@@ -1,6 +1,7 @@
 package io.cradesk.api.demo;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -12,6 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,6 +69,16 @@ class DemoAccountIT {
         mvc.perform(get("/api/auth/me").session(session))
                 .andExpect(jsonPath("$.role").value("DEMO"))
                 .andExpect(jsonPath("$.organizationName").value(DemoProperties.ORGANIZATION_NAME));
+
+        String products = mvc.perform(get("/api/products").session(session))
+                .andReturn().getResponse().getContentAsString();
+        String lockId = JsonPath.<List<String>>read(products, "$[?(@.name == 'Smart Door Lock')].id").get(0);
+        String versions = mvc.perform(get("/api/products/{id}/versions", lockId).session(session))
+                .andReturn().getResponse().getContentAsString();
+        String versionId = JsonPath.<List<String>>read(versions, "$[?(@.version == '1.1.0')].id").get(0);
+        mvc.perform(get("/api/products/{id}/versions/{versionId}/sbom", lockId, versionId).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.componentCount").value(greaterThan(0)));
     }
 
     // Comprueba que la sesión demo no puede crear, modificar ni borrar nada.
@@ -104,6 +117,7 @@ class DemoAccountIT {
     @Test
     void initializerIsIdempotent() {
         initializer.seed();
+        entityManager.flush();
 
         Integer organizations = jdbc.queryForObject("SELECT count(*) FROM organizations WHERE name = ?",
                 Integer.class, DemoProperties.ORGANIZATION_NAME);
@@ -129,6 +143,9 @@ class DemoAccountIT {
     @Test
     void organizationWithDemoNameDoesNotBlockSeeding() throws Exception {
         entityManager.flush();
+        jdbc.update("DELETE FROM sboms WHERE product_version_id IN (SELECT v.id FROM product_versions v"
+                + " JOIN products p ON p.id = v.product_id JOIN organizations o ON o.id = p.organization_id"
+                + " WHERE o.name = ?)", DemoProperties.ORGANIZATION_NAME);
         jdbc.update("DELETE FROM product_versions WHERE product_id IN (SELECT p.id FROM products p"
                 + " JOIN organizations o ON o.id = p.organization_id WHERE o.name = ?)", DemoProperties.ORGANIZATION_NAME);
         jdbc.update("DELETE FROM products WHERE organization_id IN (SELECT id FROM organizations WHERE name = ?)",
