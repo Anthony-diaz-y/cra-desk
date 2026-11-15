@@ -164,6 +164,99 @@ class ProductApiIT {
 				.andExpect(status().isNotFound());
 	}
 
+	@Test
+	void updateToAnotherProductsNameReturns409() throws Exception {
+		createProduct("Smart Lock");
+		String camera = createProduct("Camera");
+
+		mvc.perform(put("/api/products/{id}", camera)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"name":"SMART LOCK","productClass":"DEFAULT"}
+								"""))
+				.andExpect(status().isConflict());
+	}
+
+	@Test
+	void updateChangingOnlyCaseOfOwnNameReturns200() throws Exception {
+		String id = createProduct("smart lock");
+
+		mvc.perform(put("/api/products/{id}", id)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"name":"Smart Lock","productClass":"DEFAULT"}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.name").value("Smart Lock"));
+	}
+
+	@Test
+	void updateUnknownIdReturns404() throws Exception {
+		mvc.perform(put("/api/products/{id}", UUID.randomUUID())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"name":"Smart Lock","productClass":"DEFAULT"}
+								"""))
+				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void updateWithBlankNameReturns400() throws Exception {
+		String id = createProduct("Smart Lock");
+
+		mvc.perform(put("/api/products/{id}", id)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"name":"","productClass":"DEFAULT"}
+								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.name").exists());
+	}
+
+	@Test
+	void deleteUnknownIdReturns404() throws Exception {
+		mvc.perform(delete("/api/products/{id}", UUID.randomUUID()))
+				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void missingProductClassReturns400WithFieldError() throws Exception {
+		mvc.perform(post("/api/products")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"name":"Smart Lock"}
+								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.productClass").exists());
+	}
+
+	@Test
+	void unknownProductClassReturns400ProblemDetail() throws Exception {
+		mvc.perform(post("/api/products")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"name":"Smart Lock","productClass":"SUPER_CRITICAL"}
+								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void malformedJsonReturns400ProblemDetail() throws Exception {
+		mvc.perform(post("/api/products")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\": "))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	@Test
+	void invalidUuidInPathReturns400ProblemDetail() throws Exception {
+		mvc.perform(get("/api/products/{id}", "not-a-uuid"))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
 	private String createProduct(String name) throws Exception {
 		MvcResult result = mvc.perform(post("/api/products")
 						.contentType(MediaType.APPLICATION_JSON)
