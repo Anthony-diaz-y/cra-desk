@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.cradesk.api.common.Constraints;
+import io.cradesk.api.common.Names;
 
 @Service
 public class InvitationService {
@@ -64,7 +65,8 @@ public class InvitationService {
         if (users.existsByEmail(email)) {
             throw new EmailAlreadyRegisteredException(email);
         }
-        Organization organization = organizations.save(new Organization(request.organizationName().strip()));
+        Organization organization = organizations.save(
+                new Organization(Names.normalizeName(request.organizationName())));
         UserAccount user = saveUser(new UserAccount(organization, email,
                 passwordEncoder.encode(request.password()), AccessRole.MEMBER));
         invitation.markAccepted(now);

@@ -14,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "products")
@@ -43,6 +44,10 @@ public class Product {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Version
+    @Column(name = "row_version", nullable = false)
+    private long rowVersion;
 
     // Constructor vacío que JPA necesita para cargar productos desde la base de datos.
     protected Product() {
@@ -110,5 +115,10 @@ public class Product {
     // Devuelve cuándo se modificó el producto por última vez.
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    // Devuelve la versión de fila que JPA incrementa en cada cambio para detectar ediciones simultáneas.
+    public long getRowVersion() {
+        return rowVersion;
     }
 }

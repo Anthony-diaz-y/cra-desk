@@ -9,5 +9,6 @@ public record ProductResponse(
                 String description,
                 ProductClass productClass,
                 Instant createdAt,
-                Instant updatedAt) {
+                Instant updatedAt,
+                long rowVersion) {
 }

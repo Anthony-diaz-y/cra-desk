@@ -7,5 +7,6 @@ import jakarta.validation.constraints.Size;
 public record ProductRequest(
                 @NotBlank @Size(max = 120) String name,
                 @Size(max = 2000) String description,
-                @NotNull ProductClass productClass) {
+                @NotNull ProductClass productClass,
+                Long rowVersion) {
 }

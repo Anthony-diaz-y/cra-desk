@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.cradesk.api.common.Constraints;
+import io.cradesk.api.common.Names;
 import io.cradesk.api.identity.CurrentTenant;
 
 @Service
@@ -27,15 +28,16 @@ public class ProductService {
         this.tenant = tenant;
     }
 
-    // Crea un producto con el nombre recortado y rechaza nombres repetidos.
+    // Crea un producto con el nombre normalizado y rechaza nombres repetidos en la empresa.
     @Transactional
     public ProductResponse create(ProductRequest request) {
         UUID organizationId = tenant.organizationId();
-        String name = request.name().trim();
+        String name = cleanName(request.name());
         if (products.existsInOrganization(organizationId, name)) {
             throw new DuplicateProductException(name);
         }
-        Product product = new Product(organizationId, name, request.description(), request.productClass());
+        Product product = new Product(organizationId, name, Names.blankToNull(request.description()),
+                request.productClass());
         return toResponse(saveOrConflict(product, name));
     }
 
@@ -52,32 +54,36 @@ public class ProductService {
         return toResponse(find(id));
     }
 
-    // Modifica un producto y rechaza el nombre si ya lo usa otro producto.
+    // Modifica un producto, rechaza versiones de fila viejas y nombres que ya usa otro producto.
     @Transactional
     public ProductResponse update(UUID id, ProductRequest request) {
         Product product = find(id);
-        String name = request.name().trim();
-        if (!product.getName().equalsIgnoreCase(name) && products.existsInOrganization(product.getOrganizationId(), name)) {
+        if (request.rowVersion() != null && request.rowVersion() != product.getRowVersion()) {
+            throw new StaleProductException();
+        }
+        String name = cleanName(request.name());
+        if (!product.getName().equalsIgnoreCase(name)
+                && products.existsInOrganization(product.getOrganizationId(), name)) {
             throw new DuplicateProductException(name);
         }
-        product.update(name, request.description(), request.productClass());
+        product.update(name, Names.blankToNull(request.description()), request.productClass());
         return toResponse(saveOrConflict(product, name));
     }
 
-    // Borra un producto solo si no tiene versiones registradas.
+    // Borra un producto solo si no tiene versiones, bloqueando su fila para no cruzarse con otra petición.
     @Transactional
     public void delete(UUID id) {
-        Product product = find(id);
+        Product product = findForUpdate(id);
         if (versions.existsByProductId(id)) {
             throw new ProductHasVersionsException(id);
         }
         products.delete(product);
     }
 
-    // Agrega una versión al producto y rechaza versiones repetidas.
+    // Agrega una versión al producto bloqueando su fila y rechaza versiones repetidas.
     @Transactional
     public VersionResponse addVersion(UUID productId, VersionRequest request) {
-        Product product = find(productId);
+        Product product = findForUpdate(productId);
         String version = request.version().trim();
         if (versions.existsByProductIdAndVersion(productId, version)) {
             throw new DuplicateVersionException(version);
@@ -116,6 +122,21 @@ public class ProductService {
                 .orElseThrow(() -> new ProductNotFoundException(id));
     }
 
+    // Busca un producto de la empresa actual y bloquea su fila hasta el final de la transacción.
+    private Product findForUpdate(UUID id) {
+        return products.findLockedByIdAndOrganizationId(id, tenant.organizationId())
+                .orElseThrow(() -> new ProductNotFoundException(id));
+    }
+
+    // Normaliza el nombre y rechaza los que quedan vacíos al quitarles los espacios.
+    private static String cleanName(String raw) {
+        String name = Names.normalizeName(raw);
+        if (name.isEmpty()) {
+            throw new InvalidProductNameException();
+        }
+        return name;
+    }
+
     // Guarda el producto y convierte un nombre repetido detectado por la base de datos en error 409.
     private Product saveOrConflict(Product product, String name) {
         try {
@@ -131,7 +152,7 @@ public class ProductService {
     // Convierte un producto en su respuesta JSON.
     static ProductResponse toResponse(Product p) {
         return new ProductResponse(p.getId(), p.getName(), p.getDescription(), p.getProductClass(),
-                p.getCreatedAt(), p.getUpdatedAt());
+                p.getCreatedAt(), p.getUpdatedAt(), p.getRowVersion());
     }
 
     // Convierte una versión en su respuesta JSON.

@@ -3,16 +3,25 @@ package io.cradesk.api.catalog;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import io.cradesk.api.common.Constraints;
+import io.cradesk.api.identity.AccessRole;
 import io.cradesk.api.identity.Organization;
 import io.cradesk.api.identity.OrganizationRepository;
+import io.cradesk.api.identity.TenantPrincipal;
 import io.cradesk.api.support.IntegrationTest;
 
 @IntegrationTest
@@ -37,6 +46,12 @@ class CatalogConstraintsIT {
 
 	@Autowired
 	JdbcTemplate jdbc;
+
+	@Autowired
+	ProductService service;
+
+	@Autowired
+	TransactionTemplate transactions;
 
 	// Vacía las tablas del catálogo después de cada test.
 	@AfterEach
@@ -81,4 +96,62 @@ class CatalogConstraintsIT {
 		assertThat(Constraints.isViolated(e, Product.NAME_UNIQUE)).isFalse();
 	}
 
+
+	// Comprueba que borrar un producto mientras otra petición le agrega una versión responde 409 y no 500.
+	@Test
+	void deleteWaitsForConcurrentVersionInsert() throws Exception {
+		Product lock = products.saveAndFlush(new Product(org.getId(), "Smart Lock", null, ProductClass.DEFAULT));
+		CountDownLatch versionInserted = new CountDownLatch(1);
+		AtomicReference<Throwable> deleteError = new AtomicReference<>();
+
+		Thread adder = new Thread(() -> {
+			signIn();
+			transactions.executeWithoutResult(status -> {
+				service.addVersion(lock.getId(), new VersionRequest("1.0.0", null));
+				versionInserted.countDown();
+				sleep(500);
+			});
+		});
+		Thread deleter = new Thread(() -> {
+			signIn();
+			await(versionInserted);
+			try {
+				service.delete(lock.getId());
+			} catch (Throwable e) {
+				deleteError.set(e);
+			}
+		});
+		adder.start();
+		deleter.start();
+		adder.join(10_000);
+		deleter.join(10_000);
+
+		assertThat(deleteError.get()).isInstanceOf(ProductHasVersionsException.class);
+		assertThat(products.findById(lock.getId())).isPresent();
+	}
+
+	// Autentica el hilo actual como miembro de la empresa del test.
+	private void signIn() {
+		TenantPrincipal principal = new TenantPrincipal(org.getId(), null, "acme@example.com", AccessRole.MEMBER);
+		SecurityContextHolder.getContext().setAuthentication(
+				UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.authorities()));
+	}
+
+	// Espera a que el contador llegue a cero, como máximo cinco segundos.
+	private static void await(CountDownLatch latch) {
+		try {
+			latch.await(5, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+	}
+
+	// Duerme el hilo actual esa cantidad de milisegundos.
+	private static void sleep(long millis) {
+		try {
+			Thread.sleep(millis);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+	}
 }

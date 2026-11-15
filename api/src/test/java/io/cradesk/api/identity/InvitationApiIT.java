@@ -148,6 +148,16 @@ class InvitationApiIT {
                 .andExpect(jsonPath("$.errors.password").exists());
     }
 
+    // Comprueba que el nombre de la empresa se guarda sin espacios sobrantes ni espacios Unicode.
+    @Test
+    void organizationNameIsNormalized() throws Exception {
+        String code = codeFor("alice@example.com");
+
+        accept(code, "alice@example.com", "  Wonderland\u2003  Devices ")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.organizationName").value("Wonderland Devices"));
+    }
+
     // Envía la creación de una invitación con el token de admin.
     private ResultActions invite(String email) throws Exception {
         return mvc.perform(post("/api/admin/invitations")

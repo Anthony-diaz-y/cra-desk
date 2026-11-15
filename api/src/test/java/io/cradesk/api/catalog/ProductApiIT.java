@@ -1,6 +1,7 @@
 package io.cradesk.api.catalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -277,6 +278,66 @@ class ProductApiIT {
 		mvc.perform(get("/api/products/{id}", "not-a-uuid"))
 				.andExpect(status().isBadRequest())
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+	}
+
+	// Comprueba que un PUT con una versión de fila vieja responde 409 en vez de pisar el cambio de otro.
+	@Test
+	void staleRowVersionReturns409() throws Exception {
+		String id = createProduct("Thermostat");
+
+		mvc.perform(put("/api/products/{id}", id)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"name":"Thermostat v2","productClass":"DEFAULT","rowVersion":0}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.rowVersion").value(1));
+
+		mvc.perform(put("/api/products/{id}", id)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"name":"Thermostat v3","productClass":"DEFAULT","rowVersion":0}
+								"""))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.detail").value("Product was modified by someone else"));
+	}
+
+	// Comprueba que los espacios Unicode y repetidos dentro del nombre se reducen a uno solo.
+	@Test
+	void namesCollapseInnerAndUnicodeSpaces() throws Exception {
+		mvc.perform(post("/api/products")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\" Smart\u2003  Lock\u00a0\",\"productClass\":\"DEFAULT\"}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.name").value("Smart Lock"));
+
+		mvc.perform(post("/api/products")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"name":"smart lock","productClass":"DEFAULT"}
+								"""))
+				.andExpect(status().isConflict());
+	}
+
+	// Comprueba que un nombre hecho solo de espacios no separables responde 400.
+	@Test
+	void nameOfOnlyNonBreakingSpacesReturns400() throws Exception {
+		mvc.perform(post("/api/products")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\"\u00a0\u00a0\",\"productClass\":\"DEFAULT\"}"))
+				.andExpect(status().isBadRequest());
+	}
+
+	// Comprueba que una descripción en blanco se guarda como null.
+	@Test
+	void blankDescriptionIsStoredAsNull() throws Exception {
+		mvc.perform(post("/api/products")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"name":"Gateway","description":"   ","productClass":"DEFAULT"}
+								"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.description").value(nullValue()));
 	}
 
 	// Crea un producto de prueba y devuelve su id.
