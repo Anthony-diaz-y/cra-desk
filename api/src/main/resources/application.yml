@@ -15,10 +15,6 @@ spring:
     # API messages always in English, regardless of the server or client locale
     locale: en
     locale-resolver: fixed
-  mvc:
-    # Spring's own errors (malformed JSON, wrong method, ...) also as RFC 9457 problem details
-    problemdetails:
-      enabled: true
   flyway:
     enabled: true
 

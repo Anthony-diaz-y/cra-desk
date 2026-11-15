@@ -79,7 +79,7 @@ Base de la idea: `C:\workSpace\reports\Idea de software innovador 2026.md`.
 
 ```
 cra-desk/                      (monorepo)
-├── api/        Spring Boot 3, Java 21, Maven, PostgreSQL, Flyway
+├── api/        Spring Boot 4, Java 21, Maven, PostgreSQL, Flyway
 ├── cli/        Go: binario `cradesk` + GitHub Action
 ├── web/        Next.js (App Router) + TypeScript + Tailwind
 ├── docs/       diseño, decisiones (ADR), guía de despliegue

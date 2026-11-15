@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # CRA Desk — live demo of the catalog API.
 # Prereqs: Docker running, `docker compose up -d`, and the API started with
-#   cd api && ./mvnw spring-boot:run
+#   cd api && set -a && . ../.env && set +a && ./mvnw spring-boot:run
 # Then, from the repo root:  bash scripts/demo.sh
 set -u
 API="${API:-http://localhost:8080}"
@@ -25,6 +25,7 @@ call GET /actuator/health
 step "2. Register a product (an IoT smart lock, CRA 'Important Class I')"
 LOCK=$(curl -s -X POST "$API/api/products" -H 'Content-Type: application/json' \
   -d '{"name":"Demo Smart Lock '"$RUN"'","description":"Wi-Fi door lock","productClass":"IMPORTANT_CLASS_I"}' | id_of)
+[ -n "$LOCK" ] || { echo "Could not create the demo product. Is the API running at $API?"; exit 1; }
 call GET "/api/products/$LOCK"
 
 step "3. Validation: blank name → 400 with per-field errors"
