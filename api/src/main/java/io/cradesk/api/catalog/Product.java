@@ -19,11 +19,14 @@ import jakarta.persistence.Table;
 @Table(name = "products")
 public class Product {
 
-    public static final String NAME_UNIQUE = "products_name_unique";
+    public static final String NAME_UNIQUE = "products_org_name_unique";
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    @Column(name = "organization_id", nullable = false, updatable = false)
+    private UUID organizationId;
 
     @Column(nullable = false, length = 120)
     private String name;
@@ -45,8 +48,9 @@ public class Product {
     protected Product() {
     }
 
-    // Crea un producto nuevo con su nombre, descripción y clase del CRA.
-    public Product(String name, String description, ProductClass productClass) {
+    // Crea un producto nuevo de una empresa con su nombre, descripción y clase del CRA.
+    public Product(UUID organizationId, String name, String description, ProductClass productClass) {
+        this.organizationId = organizationId;
         this.name = name;
         this.description = description;
         this.productClass = productClass;
@@ -76,6 +80,11 @@ public class Product {
     // Devuelve el id del producto.
     public UUID getId() {
         return id;
+    }
+
+    // Devuelve el id de la empresa dueña del producto.
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     // Devuelve el nombre del producto.

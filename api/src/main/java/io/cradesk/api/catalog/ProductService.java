@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.cradesk.api.common.Constraints;
+import io.cradesk.api.identity.CurrentTenant;
 
 @Service
 public class ProductService {
@@ -17,28 +18,32 @@ public class ProductService {
 
     private final ProductRepository products;
     private final ProductVersionRepository versions;
+    private final CurrentTenant tenant;
 
-    // Recibe los repositorios de productos y versiones por inyección de dependencias.
-    public ProductService(ProductRepository products, ProductVersionRepository versions) {
+    // Recibe los repositorios y el acceso a la empresa de la petición actual.
+    public ProductService(ProductRepository products, ProductVersionRepository versions, CurrentTenant tenant) {
         this.products = products;
         this.versions = versions;
+        this.tenant = tenant;
     }
 
     // Crea un producto con el nombre recortado y rechaza nombres repetidos.
     @Transactional
     public ProductResponse create(ProductRequest request) {
+        UUID organizationId = tenant.organizationId();
         String name = request.name().trim();
-        if (products.existsByNameIgnoreCase(name)) {
+        if (products.existsInOrganization(organizationId, name)) {
             throw new DuplicateProductException(name);
         }
-        Product product = new Product(name, request.description(), request.productClass());
+        Product product = new Product(organizationId, name, request.description(), request.productClass());
         return toResponse(saveOrConflict(product, name));
     }
 
-    // Lista los productos ordenados por nombre sin distinguir mayúsculas.
+    // Lista los productos de la empresa actual ordenados por nombre sin distinguir mayúsculas.
     @Transactional(readOnly = true)
     public List<ProductResponse> list() {
-        return products.findAll(BY_NAME).stream().map(ProductService::toResponse).toList();
+        return products.findAllByOrganizationId(tenant.organizationId(), BY_NAME).stream()
+                .map(ProductService::toResponse).toList();
     }
 
     // Devuelve un producto o lanza error si no existe.
@@ -52,7 +57,7 @@ public class ProductService {
     public ProductResponse update(UUID id, ProductRequest request) {
         Product product = find(id);
         String name = request.name().trim();
-        if (!product.getName().equalsIgnoreCase(name) && products.existsByNameIgnoreCase(name)) {
+        if (!product.getName().equalsIgnoreCase(name) && products.existsInOrganization(product.getOrganizationId(), name)) {
             throw new DuplicateProductException(name);
         }
         product.update(name, request.description(), request.productClass());
@@ -105,9 +110,10 @@ public class ProductService {
                 .orElseThrow(() -> new VersionNotFoundException(versionId));
     }
 
-    // Busca un producto por id o lanza error si no existe.
+    // Busca un producto de la empresa actual por id o lanza error si no existe o es de otra empresa.
     Product find(UUID id) {
-        return products.findById(id).orElseThrow(() -> new ProductNotFoundException(id));
+        return products.findByIdAndOrganizationId(id, tenant.organizationId())
+                .orElseThrow(() -> new ProductNotFoundException(id));
     }
 
     // Guarda el producto y convierte un nombre repetido detectado por la base de datos en error 409.

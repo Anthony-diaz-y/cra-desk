@@ -20,7 +20,7 @@ import jakarta.persistence.Table;
 @Table(name = "product_versions")
 public class ProductVersion {
 
-    public static final String VERSION_UNIQUE = "product_versions_product_id_version_key";
+    public static final String VERSION_UNIQUE = "product_versions_product_version_unique";
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
