@@ -23,6 +23,9 @@ import jakarta.persistence.Table;
 @Table(name = "product_versions")
 public class ProductVersion {
 
+    /** UNIQUE (product_id, version) from V1__catalog.sql; PostgreSQL generated this name. */
+    public static final String VERSION_UNIQUE = "product_versions_product_id_version_key";
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;

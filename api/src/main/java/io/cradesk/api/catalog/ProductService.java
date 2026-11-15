@@ -8,6 +8,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.cradesk.api.common.Constraints;
+
 /**
  * Business rules for products. Controllers call this; it talks to the
  * repository. Names are trimmed and must be unique ignoring case.
@@ -76,7 +78,10 @@ public class ProductService {
             ProductVersion saved = versions.saveAndFlush(new ProductVersion(product, version, request.releasedAt()));
             return toResponse(saved);
         } catch (DataIntegrityViolationException e) {
-            throw new DuplicateVersionException(version);
+            if (Constraints.isViolated(e, ProductVersion.VERSION_UNIQUE)) {
+                throw new DuplicateVersionException(version);
+            }
+            throw e;
         }
     }
 
@@ -95,13 +100,17 @@ public class ProductService {
      * Flushes immediately so that (1) @PreUpdate runs before we build the
      * response and (2) a duplicate that slipped past the exists() check
      * (two requests at the same instant) hits the unique index here and
-     * becomes a 409 instead of a 500.
+     * becomes a 409 instead of a 500. Any other integrity error is rethrown:
+     * it is not a duplicate and must not be reported as one.
      */
     private Product saveOrConflict(Product product, String name) {
         try {
             return products.saveAndFlush(product);
         } catch (DataIntegrityViolationException e) {
-            throw new DuplicateProductException(name);
+            if (Constraints.isViolated(e, Product.NAME_UNIQUE)) {
+                throw new DuplicateProductException(name);
+            }
+            throw e;
         }
     }
 

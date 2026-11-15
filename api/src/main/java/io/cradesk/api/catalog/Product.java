@@ -18,6 +18,9 @@ import jakarta.persistence.Table;
 @Table(name = "products")
 public class Product {
 
+    /** Unique index on lower(name), created in V1__catalog.sql. */
+    public static final String NAME_UNIQUE = "products_name_unique";
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
