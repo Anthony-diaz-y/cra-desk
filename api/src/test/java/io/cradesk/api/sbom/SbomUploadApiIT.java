@@ -36,7 +36,7 @@ import io.cradesk.api.support.TestTenants;
 import io.cradesk.api.support.TestTenants.TestTenant;
 
 @IntegrationTest
-class SbomUploadApiIT {
+public class SbomUploadApiIT {
 
     static final MediaType CYCLONEDX = MediaType.parseMediaType("application/vnd.cyclonedx+json");
 
@@ -234,33 +234,33 @@ class SbomUploadApiIT {
     }
 
     // Arma la URL del SBOM de una versión de producto.
-    static String sbomUrl(String productId, String versionId) {
+    public static String sbomUrl(String productId, String versionId) {
         return "/api/products/" + productId + "/versions/" + versionId + "/sbom";
     }
 
     // Crea un producto y devuelve su id.
-    static String createProduct(MockMvc mvc, String name) throws Exception {
+    public static String createProduct(MockMvc mvc, String name) throws Exception {
         return JsonPath.read(mvc.perform(post("/api/products").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"%s\",\"productClass\":\"DEFAULT\"}".formatted(name)))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.id");
     }
 
     // Crea una versión del producto y devuelve su id.
-    static String createVersion(MockMvc mvc, String productId, String version) throws Exception {
+    public static String createVersion(MockMvc mvc, String productId, String version) throws Exception {
         return JsonPath.read(mvc.perform(post("/api/products/{id}/versions", productId)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"version\":\"%s\"}".formatted(version)))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.id");
     }
 
     // Lee un archivo de ejemplo de la carpeta de recursos de test.
-    static byte[] fixture(String name) throws IOException {
+    public static byte[] fixture(String name) throws IOException {
         try (InputStream in = SbomUploadApiIT.class.getResourceAsStream("/sbom/" + name)) {
             return in.readAllBytes();
         }
     }
 
     // Genera un JSON CycloneDX válido que pasa 1 KB del límite de 5 MB.
-    static byte[] oversized() {
+    public static byte[] oversized() {
         String head = "{\"bomFormat\":\"CycloneDX\",\"specVersion\":\"1.5\",\"padding\":\"";
         String tail = "\"}";
         int fill = 5 * 1024 * 1024 + 1024 - head.length() - tail.length();
@@ -268,7 +268,7 @@ class SbomUploadApiIT {
     }
 
     // Calcula el SHA-256 de los bytes en hexadecimal.
-    static String sha256(byte[] bytes) throws Exception {
+    public static String sha256(byte[] bytes) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 

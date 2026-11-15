@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -43,11 +44,12 @@ public class SbomService {
     private final CurrentTenant tenant;
     private final TransactionTemplate transactions;
     private final SbomProperties properties;
+    private final ApplicationEventPublisher events;
 
     // Recibe el parser, el catálogo, los repositorios, el usuario actual, las transacciones y la configuración.
     public SbomService(CycloneDxParser parser, ProductService products, SbomRepository sboms,
             SbomComponentRepository components, CurrentTenant tenant, TransactionTemplate transactions,
-            SbomProperties properties) {
+            SbomProperties properties, ApplicationEventPublisher events) {
         this.parser = parser;
         this.products = products;
         this.sboms = sboms;
@@ -55,6 +57,7 @@ public class SbomService {
         this.tenant = tenant;
         this.transactions = transactions;
         this.properties = properties;
+        this.events = events;
     }
 
     // Lee y valida el SBOM recibido y lo guarda en la versión, reemplazando el anterior si existía.
@@ -71,7 +74,7 @@ public class SbomService {
         });
     }
 
-    // Reemplaza el SBOM de la versión por uno nuevo con sus componentes; debe llamarse dentro de una transacción.
+    // Reemplaza el SBOM de la versión por uno nuevo y avisa con un evento; debe llamarse dentro de una transacción.
     public UploadResult store(UUID productId, UUID versionId, byte[] document, ParsedSbom parsed, UUID uploadedBy,
             UploadChannel channel) {
         boolean replaced = sboms.findByProductVersionId(versionId).map(previous -> {
@@ -86,6 +89,7 @@ public class SbomService {
                 .map(c -> new SbomComponent(sbom, c.bomRef(), c.type(), c.group(), c.name(), c.version(), c.purl()))
                 .toList());
         components.flush();
+        events.publishEvent(new SbomUploadedEvent(versionId));
         return new UploadResult(SbomSummary.of(sbom, productId), replaced);
     }
 

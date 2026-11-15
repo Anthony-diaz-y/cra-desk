@@ -65,18 +65,22 @@ public class VersionScan {
         error = null;
     }
 
-    // Marca el escaneo como terminado con cuántos componentes se escanearon y cuántos no.
+    // Marca el escaneo como terminado con sus conteos; si se volvió a pedir mientras corría, queda pendiente.
     public void finish(Instant now, int scanned, int notScanned) {
-        status = ScanStatus.DONE;
+        if (status != ScanStatus.PENDING) {
+            status = ScanStatus.DONE;
+        }
         finishedAt = micros(now);
         componentsScanned = scanned;
         componentsNotScanned = notScanned;
         error = null;
     }
 
-    // Marca el escaneo como fallido con el motivo recortado a 500 caracteres.
+    // Marca el escaneo como fallido con el motivo; si se volvió a pedir mientras corría, queda pendiente.
     public void fail(Instant now, String reason) {
-        status = ScanStatus.FAILED;
+        if (status != ScanStatus.PENDING) {
+            status = ScanStatus.FAILED;
+        }
         finishedAt = micros(now);
         String text = reason == null ? "Unknown error" : reason;
         error = text.length() > MAX_ERROR_LENGTH ? text.substring(0, MAX_ERROR_LENGTH) : text;
