@@ -92,6 +92,14 @@ public class ProductService {
                 .map(ProductService::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
+    public VersionResponse getVersion(UUID productId, UUID versionId) {
+        find(productId);
+        return versions.findByIdAndProductId(versionId, productId)
+                .map(ProductService::toResponse)
+                .orElseThrow(() -> new VersionNotFoundException(versionId));
+    }
+
     Product find(UUID id) {
         return products.findById(id).orElseThrow(() -> new ProductNotFoundException(id));
     }

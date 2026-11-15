@@ -57,6 +57,7 @@ It registers an IoT product, shows validation (400), duplicate detection (409), 
 | `DELETE` | `/api/products/{id}` | 204 · 404 · 409 if it has versions |
 | `POST` | `/api/products/{id}/versions` | 201 · 400 · 404 · 409 duplicate version |
 | `GET` | `/api/products/{id}/versions` | 200, newest first · 404 |
+| `GET` | `/api/products/{id}/versions/{versionId}` | 200 · 404 (also if the version belongs to another product) |
 
 ## License
 

@@ -18,6 +18,7 @@ import io.cradesk.api.catalog.DuplicateProductException;
 import io.cradesk.api.catalog.DuplicateVersionException;
 import io.cradesk.api.catalog.ProductHasVersionsException;
 import io.cradesk.api.catalog.ProductNotFoundException;
+import io.cradesk.api.catalog.VersionNotFoundException;
 
 /**
  * Turns exceptions into RFC 9457 "problem details" JSON responses, so every
@@ -42,7 +43,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.badRequest().body(problem);
     }
 
-    @ExceptionHandler(ProductNotFoundException.class)
+    @ExceptionHandler({ ProductNotFoundException.class, VersionNotFoundException.class })
     ProblemDetail notFound(RuntimeException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
         problem.setTitle("Not found");

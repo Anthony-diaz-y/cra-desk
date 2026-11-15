@@ -1,5 +1,6 @@
 package io.cradesk.api.catalog;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -41,6 +42,38 @@ class ProductVersionApiIT {
 				.andExpect(jsonPath("$.version").value("1.0.0"))
 				.andExpect(jsonPath("$.releasedAt").value("2026-10-01"))
 				.andExpect(jsonPath("$.createdAt").exists());
+	}
+
+	@Test
+	void locationOfCreatedVersionCanBeFetched() throws Exception {
+		String productId = createProduct("Smart Lock");
+		MvcResult created = addVersion(productId, "{\"version\":\"1.0.0\"}")
+				.andExpect(status().isCreated())
+				.andReturn();
+		String versionId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+		String location = created.getResponse().getHeader("Location");
+
+		assertThat(location).isEqualTo("/api/products/" + productId + "/versions/" + versionId);
+		mvc.perform(get(location))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id").value(versionId))
+				.andExpect(jsonPath("$.productId").value(productId))
+				.andExpect(jsonPath("$.version").value("1.0.0"));
+	}
+
+	@Test
+	void versionUnderWrongProductReturns404() throws Exception {
+		String lock = createProduct("Smart Lock");
+		String camera = createProduct("Camera");
+		String versionId = JsonPath.read(addVersion(lock, "{\"version\":\"1.0.0\"}")
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString(), "$.id");
+
+		mvc.perform(get("/api/products/{id}/versions/{versionId}", camera, versionId))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.status").value(404));
+		mvc.perform(get("/api/products/{id}/versions/{versionId}", lock, UUID.randomUUID()))
+				.andExpect(status().isNotFound());
 	}
 
 	@Test

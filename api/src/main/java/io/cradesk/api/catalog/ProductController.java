@@ -61,6 +61,11 @@ public class ProductController {
         return service.listVersions(id);
     }
 
+    @GetMapping("/{id}/versions/{versionId}")
+    public VersionResponse getVersion(@PathVariable UUID id, @PathVariable UUID versionId) {
+        return service.getVersion(id, versionId);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         service.delete(id);
