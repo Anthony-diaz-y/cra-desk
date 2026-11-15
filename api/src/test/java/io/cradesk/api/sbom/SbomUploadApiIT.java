@@ -111,6 +111,28 @@ class SbomUploadApiIT {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM sboms", Integer.class)).isZero();
     }
 
+    // Comprueba que un SBOM guardado en UTF-16 (como lo deja PowerShell 5.1) responde 400 y no 500.
+    @Test
+    void utf16BodyReturns400() throws Exception {
+        byte[] utf16 = new String(fixture("syft-alpine-1.5.json"), StandardCharsets.UTF_8)
+                .getBytes(StandardCharsets.UTF_16LE);
+
+        upload(acme, utf16, MediaType.APPLICATION_JSON)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.body").value("must be UTF-8 encoded JSON"));
+    }
+
+    // Comprueba que un nombre de componente más largo que su columna responde 400 y no 500.
+    @Test
+    void overlongComponentNameReturns400() throws Exception {
+        String json = "{\"bomFormat\":\"CycloneDX\",\"specVersion\":\"1.5\",\"components\":[{\"name\":\""
+                + "n".repeat(600) + "\"}]}";
+
+        upload(acme, json.getBytes(StandardCharsets.UTF_8), CYCLONEDX)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors['components[0].name']").value("must be at most 512 characters"));
+    }
+
     // Comprueba que un SBOM en XML responde 415.
     @Test
     void xmlReturns415() throws Exception {

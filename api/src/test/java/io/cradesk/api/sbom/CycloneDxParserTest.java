@@ -111,6 +111,52 @@ class CycloneDxParserTest {
         assertThat(sbom.components()).extracting(ParsedComponent::name).containsExactly("ñandú-core");
     }
 
+    // Comprueba que los valores más largos que su columna o con carácter NUL se rechazan con su ruta.
+    @Test
+    void rejectsOverlongAndNulValues() {
+        String json = "{\"bomFormat\":\"CycloneDX\",\"specVersion\":\"1.5\",\"serialNumber\":\"urn:uuid:"
+                + "x".repeat(200) + "\",\"components\":[{\"name\":\"ok\",\"type\":\"" + "t".repeat(40)
+                + "\"},{\"name\":\"a\\u0000b\"},{\"name\":\"" + "n".repeat(513) + "\"}]}";
+
+        assertThat(errorsFor(json))
+                .containsEntry("serialNumber", "must be at most 100 characters")
+                .containsEntry("components[0].type", "must be at most 32 characters")
+                .containsEntry("components[1].name", "must not contain NUL characters")
+                .containsEntry("components[2].name", "must be at most 512 characters");
+    }
+
+    // Comprueba que un SBOM guardado en UTF-16, con o sin BOM, se rechaza pidiendo UTF-8.
+    @Test
+    void rejectsUtf16() throws IOException {
+        String text = new String(fixture("syft-alpine-1.5.json"), StandardCharsets.UTF_8);
+
+        for (byte[] body : new byte[][] { text.getBytes(StandardCharsets.UTF_16LE),
+                ("\uFEFF" + text).getBytes(StandardCharsets.UTF_16LE), text.getBytes(StandardCharsets.UTF_16BE) }) {
+            InvalidSbomException e = catchThrowableOfType(InvalidSbomException.class, () -> parser.parse(body));
+            assertThat(e.errors()).containsEntry("body", "must be UTF-8 encoded JSON");
+        }
+    }
+
+    // Comprueba que un campo enorme que no se usa no se carga entero en memoria al leer el SBOM.
+    @Test
+    void ignoredHugeFieldIsNotLoadedIntoMemory() {
+        StringBuilder json = new StringBuilder("{\"bomFormat\":\"CycloneDX\",\"specVersion\":\"1.5\",\"x\":[");
+        while (json.length() < 5 * 1024 * 1024) {
+            json.append("{},");
+        }
+        json.append("{}],\"components\":[{\"name\":\"busybox\"}]}");
+        byte[] body = json.toString().getBytes(StandardCharsets.UTF_8);
+        com.sun.management.ThreadMXBean threads =
+                (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+
+        long before = threads.getCurrentThreadAllocatedBytes();
+        ParsedSbom sbom = parser.parse(body);
+        long allocated = threads.getCurrentThreadAllocatedBytes() - before;
+
+        assertThat(sbom.components()).hasSize(1);
+        assertThat(allocated).isLessThan(40L * 1024 * 1024);
+    }
+
     // Lee un archivo de ejemplo de la carpeta de recursos de test.
     private static byte[] fixture(String name) throws IOException {
         try (InputStream in = CycloneDxParserTest.class.getResourceAsStream("/sbom/" + name)) {
