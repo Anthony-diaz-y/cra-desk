@@ -128,6 +128,27 @@ class DemoAccountIT {
         assertThat(products).isEqualTo(2);
     }
 
+    // Comprueba que una demo creada antes del módulo SBOM recibe el SBOM de ejemplo al volver a sembrar.
+    @Test
+    void existingDemoWithoutSbomGetsTheSample() {
+        entityManager.flush();
+        jdbc.update("DELETE FROM sboms WHERE product_version_id IN (SELECT v.id FROM product_versions v"
+                + " JOIN products p ON p.id = v.product_id JOIN organizations o ON o.id = p.organization_id"
+                + " WHERE o.name = ?)", DemoProperties.ORGANIZATION_NAME);
+        entityManager.clear();
+
+        initializer.seed();
+        initializer.seed();
+        entityManager.flush();
+
+        Integer sboms = jdbc.queryForObject("""
+                SELECT count(*) FROM sboms s JOIN product_versions v ON v.id = s.product_version_id
+                JOIN products p ON p.id = v.product_id JOIN organizations o ON o.id = p.organization_id
+                WHERE o.name = ? AND p.name = 'Smart Door Lock' AND v.version = '1.1.0'
+                """, Integer.class, DemoProperties.ORGANIZATION_NAME);
+        assertThat(sboms).isEqualTo(1);
+    }
+
     // Comprueba que al usuario demo no se puede entrar con contraseña.
     @Test
     void demoUserCannotPasswordLogin() throws Exception {
