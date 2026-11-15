@@ -1,6 +1,7 @@
 package io.cradesk.api.catalog;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -56,16 +57,17 @@ public class Product {
         this.productClass = productClass;
     }
 
+    // timestamptz stores microseconds; truncating keeps the response equal to what a later GET reads.
     @PrePersist
     void onCreate() {
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         createdAt = now;
         updatedAt = now;
     }
 
     @PreUpdate
     void onUpdate() {
-        updatedAt = Instant.now();
+        updatedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
     public UUID getId() {

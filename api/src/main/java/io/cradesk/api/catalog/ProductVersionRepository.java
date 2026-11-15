@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ProductVersionRepository extends JpaRepository<ProductVersion, UUID> {
 
-    List<ProductVersion> findByProductIdOrderByCreatedAtDesc(UUID productId);
+    List<ProductVersion> findByProductIdOrderByCreatedAtDescIdDesc(UUID productId);
 
     /** Both ids must match, so a version can't be read through another product. */
     Optional<ProductVersion> findByIdAndProductId(UUID id, UUID productId);

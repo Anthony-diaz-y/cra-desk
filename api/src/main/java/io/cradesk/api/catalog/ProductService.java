@@ -88,7 +88,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     public List<VersionResponse> listVersions(UUID productId) {
         find(productId);
-        return versions.findByProductIdOrderByCreatedAtDesc(productId).stream()
+        return versions.findByProductIdOrderByCreatedAtDescIdDesc(productId).stream()
                 .map(ProductService::toResponse).toList();
     }
 
