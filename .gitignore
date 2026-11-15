@@ -1,27 +1,21 @@
-# Secrets
 .env
 *.env.local
 
-# Java / Maven
 target/
 *.class
 *.log
 
-# Node / Next.js
 node_modules/
 .next/
 out/
 
-# Go
 /cli/dist/
 *.exe
 
-# IDE / OS
 .idea/
 .vscode/
 *.iml
 .DS_Store
 Thumbs.db
 
-# Local agent scratch
 .superpowers/

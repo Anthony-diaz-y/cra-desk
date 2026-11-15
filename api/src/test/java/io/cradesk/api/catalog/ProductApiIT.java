@@ -24,12 +24,6 @@ import com.jayway.jsonpath.JsonPath;
 
 import io.cradesk.api.support.IntegrationTest;
 
-/**
- * Task 4 specification: the products REST API.
- *
- * <p>Every test runs inside a transaction that is rolled back at the end, so
- * the database is always empty at the start of each test.
- */
 @IntegrationTest
 @Transactional
 class ProductApiIT {
@@ -37,6 +31,7 @@ class ProductApiIT {
 	@Autowired
 	MockMvc mvc;
 
+	// Comprueba que crear un producto responde 201 con Location.
 	@Test
 	void createReturns201WithLocation() throws Exception {
 		MvcResult result = mvc.perform(post("/api/products")
@@ -60,6 +55,7 @@ class ProductApiIT {
 				.isEqualTo("/api/products/" + id);
 	}
 
+	// Comprueba que la lista sale ordenada por nombre.
 	@Test
 	void listIsSortedByName() throws Exception {
 		createProduct("Zeta Sensor");
@@ -74,6 +70,7 @@ class ProductApiIT {
 				.andExpect(jsonPath("$[2].name").value("Zeta Sensor"));
 	}
 
+	// Comprueba que un id inexistente responde 404.
 	@Test
 	void getUnknownIdReturns404() throws Exception {
 		mvc.perform(get("/api/products/{id}", UUID.randomUUID()))
@@ -82,6 +79,7 @@ class ProductApiIT {
 				.andExpect(jsonPath("$.status").value(404));
 	}
 
+	// Comprueba que un nombre en blanco responde 400 con error en el campo.
 	@Test
 	void blankNameReturns400WithFieldError() throws Exception {
 		mvc.perform(post("/api/products")
@@ -93,6 +91,7 @@ class ProductApiIT {
 				.andExpect(jsonPath("$.errors.name").exists());
 	}
 
+	// Comprueba que un nombre de más de 120 caracteres responde 400.
 	@Test
 	void nameLongerThan120Returns400() throws Exception {
 		String longName = "N".repeat(121);
@@ -106,6 +105,7 @@ class ProductApiIT {
 				.andExpect(jsonPath("$.errors.name").exists());
 	}
 
+	// Comprueba que un nombre repetido con otras mayúsculas responde 409.
 	@Test
 	void duplicateNameDifferentCaseReturns409() throws Exception {
 		createProduct("Smart Lock");
@@ -119,6 +119,7 @@ class ProductApiIT {
 				.andExpect(jsonPath("$.status").value(409));
 	}
 
+	// Comprueba que modificar cambia los campos y la fecha de modificación.
 	@Test
 	void updateChangesFieldsAndUpdatedAt() throws Exception {
 		MvcResult created = mvc.perform(post("/api/products")
@@ -153,6 +154,7 @@ class ProductApiIT {
 		assertThat(updatedUpdatedAt).isAfter(createdAt);
 	}
 
+	// Comprueba que un producto borrado ya no se encuentra.
 	@Test
 	void deleteReturns204ThenGetReturns404() throws Exception {
 		String id = createProduct("Gateway");
@@ -164,6 +166,7 @@ class ProductApiIT {
 				.andExpect(status().isNotFound());
 	}
 
+	// Comprueba que renombrar con el nombre de otro producto responde 409.
 	@Test
 	void updateToAnotherProductsNameReturns409() throws Exception {
 		createProduct("Smart Lock");
@@ -177,6 +180,7 @@ class ProductApiIT {
 				.andExpect(status().isConflict());
 	}
 
+	// Comprueba que cambiar solo las mayúsculas del propio nombre está permitido.
 	@Test
 	void updateChangingOnlyCaseOfOwnNameReturns200() throws Exception {
 		String id = createProduct("smart lock");
@@ -190,6 +194,7 @@ class ProductApiIT {
 				.andExpect(jsonPath("$.name").value("Smart Lock"));
 	}
 
+	// Comprueba que modificar un id inexistente responde 404.
 	@Test
 	void updateUnknownIdReturns404() throws Exception {
 		mvc.perform(put("/api/products/{id}", UUID.randomUUID())
@@ -200,6 +205,7 @@ class ProductApiIT {
 				.andExpect(status().isNotFound());
 	}
 
+	// Comprueba que modificar con nombre vacío responde 400.
 	@Test
 	void updateWithBlankNameReturns400() throws Exception {
 		String id = createProduct("Smart Lock");
@@ -213,12 +219,14 @@ class ProductApiIT {
 				.andExpect(jsonPath("$.errors.name").exists());
 	}
 
+	// Comprueba que borrar un id inexistente responde 404.
 	@Test
 	void deleteUnknownIdReturns404() throws Exception {
 		mvc.perform(delete("/api/products/{id}", UUID.randomUUID()))
 				.andExpect(status().isNotFound());
 	}
 
+	// Comprueba que sin productClass responde 400 con error en el campo.
 	@Test
 	void missingProductClassReturns400WithFieldError() throws Exception {
 		mvc.perform(post("/api/products")
@@ -230,6 +238,7 @@ class ProductApiIT {
 				.andExpect(jsonPath("$.errors.productClass").exists());
 	}
 
+	// Comprueba que un productClass desconocido responde 400.
 	@Test
 	void unknownProductClassReturns400ProblemDetail() throws Exception {
 		mvc.perform(post("/api/products")
@@ -241,6 +250,7 @@ class ProductApiIT {
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
 	}
 
+	// Comprueba que un JSON mal formado responde 400.
 	@Test
 	void malformedJsonReturns400ProblemDetail() throws Exception {
 		mvc.perform(post("/api/products")
@@ -250,6 +260,7 @@ class ProductApiIT {
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
 	}
 
+	// Comprueba que un id que no es UUID responde 400.
 	@Test
 	void invalidUuidInPathReturns400ProblemDetail() throws Exception {
 		mvc.perform(get("/api/products/{id}", "not-a-uuid"))
@@ -257,6 +268,7 @@ class ProductApiIT {
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
 	}
 
+	// Crea un producto de prueba y devuelve su id.
 	private String createProduct(String name) throws Exception {
 		MvcResult result = mvc.perform(post("/api/products")
 						.contentType(MediaType.APPLICATION_JSON)

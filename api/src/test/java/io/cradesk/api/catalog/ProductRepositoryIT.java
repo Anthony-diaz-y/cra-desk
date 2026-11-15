@@ -8,10 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.cradesk.api.support.IntegrationTest;
 
-/**
- * Task 3 specification. Each test runs inside a transaction that is rolled
- * back at the end, so tests don't see each other's data.
- */
 @IntegrationTest
 @Transactional
 class ProductRepositoryIT {
@@ -19,6 +15,7 @@ class ProductRepositoryIT {
 	@Autowired
 	ProductRepository products;
 
+	// Comprueba que un producto se guarda y se recupera con los mismos datos.
 	@Test
 	void savesAndFindsProduct() {
 		Product saved = products.saveAndFlush(
@@ -34,6 +31,7 @@ class ProductRepositoryIT {
 		assertThat(found.getUpdatedAt()).isNotNull();
 	}
 
+	// Comprueba que la búsqueda por nombre no distingue mayúsculas.
 	@Test
 	void existsByNameIgnoresCase() {
 		products.saveAndFlush(new Product("Smart Lock", null, ProductClass.DEFAULT));

@@ -58,6 +58,7 @@ Mis objetivos:
   - **Avance directo** (cuando estoy apurado): implementas tú con TDD y al final me explicas qué hiciste y qué archivos debo leer para poder explicarlo.
 - Explicaciones simples, con tablas y ejemplos cortos.
 - Errores que ya cometí: código Java dentro de un `.sql`; olvidar comas y `;` en SQL; poner en un método de repositorio el nombre de un campo que no existe.
+- **Regla de comentarios:** solo un comentario de una línea en español encima de cada función o método, explicando qué hace. Ningún otro comentario en el código ni en la configuración.
 
 ## Notas de entorno
 

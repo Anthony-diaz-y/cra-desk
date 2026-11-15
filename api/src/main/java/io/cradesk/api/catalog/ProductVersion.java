@@ -16,15 +16,10 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
-/**
- * One released version of a product (e.g. firmware 1.2.0). Each version will
- * later carry its own SBOM. Many versions belong to one product.
- */
 @Entity
 @Table(name = "product_versions")
 public class ProductVersion {
 
-    /** UNIQUE (product_id, version) from V1__catalog.sql; PostgreSQL generated this name. */
     public static final String VERSION_UNIQUE = "product_versions_product_id_version_key";
 
     @Id
@@ -44,36 +39,44 @@ public class ProductVersion {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    // Constructor vacío que JPA necesita para cargar versiones desde la base de datos.
     protected ProductVersion() {
     }
 
+    // Crea una versión nueva de un producto con su fecha de lanzamiento opcional.
     public ProductVersion(Product product, String version, LocalDate releasedAt) {
         this.product = product;
         this.version = version;
         this.releasedAt = releasedAt;
     }
 
+    // Fija la fecha de creación antes de guardar por primera vez.
     @PrePersist
     void onCreate() {
         createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
+    // Devuelve el id de la versión.
     public UUID getId() {
         return id;
     }
 
+    // Devuelve el producto al que pertenece la versión.
     public Product getProduct() {
         return product;
     }
 
+    // Devuelve el texto de la versión, por ejemplo 1.2.0.
     public String getVersion() {
         return version;
     }
 
+    // Devuelve la fecha de lanzamiento de la versión.
     public LocalDate getReleasedAt() {
         return releasedAt;
     }
 
+    // Devuelve cuándo se registró la versión.
     public Instant getCreatedAt() {
         return createdAt;
     }

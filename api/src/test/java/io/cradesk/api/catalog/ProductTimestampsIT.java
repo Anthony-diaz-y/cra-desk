@@ -16,10 +16,6 @@ import com.jayway.jsonpath.JsonPath;
 
 import io.cradesk.api.support.IntegrationTest;
 
-/**
- * No test-wide transaction here: each request commits and the GET reads the
- * row back from PostgreSQL, so we see what was really stored.
- */
 @IntegrationTest
 class ProductTimestampsIT {
 
@@ -29,11 +25,13 @@ class ProductTimestampsIT {
 	@Autowired
 	JdbcTemplate jdbc;
 
+	// Vacía las tablas del catálogo después de cada test.
 	@AfterEach
 	void cleanUp() {
 		jdbc.execute("TRUNCATE product_versions, products");
 	}
 
+	// Comprueba que las fechas del POST coinciden con las guardadas en la base de datos.
 	@Test
 	void timestampsInCreateResponseMatchWhatIsStored() throws Exception {
 		String created = mvc.perform(post("/api/products")

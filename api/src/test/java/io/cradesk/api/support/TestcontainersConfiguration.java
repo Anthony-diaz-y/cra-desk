@@ -6,13 +6,10 @@ import org.springframework.context.annotation.Bean;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-/**
- * Starts a real PostgreSQL 17 in Docker for tests. {@code @ServiceConnection}
- * tells Spring Boot to point the datasource at this container automatically.
- */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
 
+	// Crea el contenedor PostgreSQL 17 que usan los tests.
 	@Bean
 	@ServiceConnection
 	PostgreSQLContainer postgresContainer() {

@@ -10,10 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.cradesk.api.common.Constraints;
 
-/**
- * Business rules for products. Controllers call this; it talks to the
- * repository. Names are trimmed and must be unique ignoring case.
- */
 @Service
 public class ProductService {
 
@@ -22,11 +18,13 @@ public class ProductService {
     private final ProductRepository products;
     private final ProductVersionRepository versions;
 
+    // Recibe los repositorios de productos y versiones por inyección de dependencias.
     public ProductService(ProductRepository products, ProductVersionRepository versions) {
         this.products = products;
         this.versions = versions;
     }
 
+    // Crea un producto con el nombre recortado y rechaza nombres repetidos.
     @Transactional
     public ProductResponse create(ProductRequest request) {
         String name = request.name().trim();
@@ -37,16 +35,19 @@ public class ProductService {
         return toResponse(saveOrConflict(product, name));
     }
 
+    // Lista los productos ordenados por nombre sin distinguir mayúsculas.
     @Transactional(readOnly = true)
     public List<ProductResponse> list() {
         return products.findAll(BY_NAME).stream().map(ProductService::toResponse).toList();
     }
 
+    // Devuelve un producto o lanza error si no existe.
     @Transactional(readOnly = true)
     public ProductResponse get(UUID id) {
         return toResponse(find(id));
     }
 
+    // Modifica un producto y rechaza el nombre si ya lo usa otro producto.
     @Transactional
     public ProductResponse update(UUID id, ProductRequest request) {
         Product product = find(id);
@@ -58,6 +59,7 @@ public class ProductService {
         return toResponse(saveOrConflict(product, name));
     }
 
+    // Borra un producto solo si no tiene versiones registradas.
     @Transactional
     public void delete(UUID id) {
         Product product = find(id);
@@ -67,6 +69,7 @@ public class ProductService {
         products.delete(product);
     }
 
+    // Agrega una versión al producto y rechaza versiones repetidas.
     @Transactional
     public VersionResponse addVersion(UUID productId, VersionRequest request) {
         Product product = find(productId);
@@ -85,6 +88,7 @@ public class ProductService {
         }
     }
 
+    // Lista las versiones de un producto existente.
     @Transactional(readOnly = true)
     public List<VersionResponse> listVersions(UUID productId) {
         find(productId);
@@ -92,6 +96,7 @@ public class ProductService {
                 .map(ProductService::toResponse).toList();
     }
 
+    // Devuelve una versión solo si pertenece al producto indicado.
     @Transactional(readOnly = true)
     public VersionResponse getVersion(UUID productId, UUID versionId) {
         find(productId);
@@ -100,17 +105,12 @@ public class ProductService {
                 .orElseThrow(() -> new VersionNotFoundException(versionId));
     }
 
+    // Busca un producto por id o lanza error si no existe.
     Product find(UUID id) {
         return products.findById(id).orElseThrow(() -> new ProductNotFoundException(id));
     }
 
-    /**
-     * Flushes immediately so that (1) @PreUpdate runs before we build the
-     * response and (2) a duplicate that slipped past the exists() check
-     * (two requests at the same instant) hits the unique index here and
-     * becomes a 409 instead of a 500. Any other integrity error is rethrown:
-     * it is not a duplicate and must not be reported as one.
-     */
+    // Guarda el producto y convierte un nombre repetido detectado por la base de datos en error 409.
     private Product saveOrConflict(Product product, String name) {
         try {
             return products.saveAndFlush(product);
@@ -122,11 +122,13 @@ public class ProductService {
         }
     }
 
+    // Convierte un producto en su respuesta JSON.
     static ProductResponse toResponse(Product p) {
         return new ProductResponse(p.getId(), p.getName(), p.getDescription(), p.getProductClass(),
                 p.getCreatedAt(), p.getUpdatedAt());
     }
 
+    // Convierte una versión en su respuesta JSON.
     static VersionResponse toResponse(ProductVersion v) {
         return new VersionResponse(v.getId(), v.getProduct().getId(), v.getVersion(), v.getReleasedAt(),
                 v.getCreatedAt());

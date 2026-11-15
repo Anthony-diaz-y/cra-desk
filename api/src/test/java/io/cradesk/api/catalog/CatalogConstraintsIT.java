@@ -12,11 +12,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import io.cradesk.api.common.Constraints;
 import io.cradesk.api.support.IntegrationTest;
 
-/**
- * Real database constraints, without the test-wide rollback transaction: every
- * statement here really commits, so PostgreSQL raises the errors a concurrent
- * request would hit. The tables are emptied after each test.
- */
 @IntegrationTest
 class CatalogConstraintsIT {
 
@@ -29,11 +24,13 @@ class CatalogConstraintsIT {
 	@Autowired
 	JdbcTemplate jdbc;
 
+	// Vacía las tablas del catálogo después de cada test.
 	@AfterEach
 	void cleanUp() {
 		jdbc.execute("TRUNCATE product_versions, products");
 	}
 
+	// Comprueba que un nombre repetido viola el índice único de productos.
 	@Test
 	void duplicateProductNameViolatesNamedUniqueIndex() {
 		products.saveAndFlush(new Product("Smart Lock", null, ProductClass.DEFAULT));
@@ -45,6 +42,7 @@ class CatalogConstraintsIT {
 		assertThat(Constraints.isViolated(e, ProductVersion.VERSION_UNIQUE)).isFalse();
 	}
 
+	// Comprueba que una versión repetida viola la restricción única de versiones.
 	@Test
 	void duplicateVersionViolatesNamedUniqueConstraint() {
 		Product lock = products.saveAndFlush(new Product("Smart Lock", null, ProductClass.DEFAULT));
@@ -56,9 +54,9 @@ class CatalogConstraintsIT {
 		assertThat(Constraints.isViolated(e, ProductVersion.VERSION_UNIQUE)).isTrue();
 	}
 
+	// Comprueba que un error de clave foránea no se toma como duplicado.
 	@Test
 	void versionOfDeletedProductIsNotReportedAsDuplicate() {
-		// Simulates a version being added while another request deletes the product.
 		Product lock = products.saveAndFlush(new Product("Smart Lock", null, ProductClass.DEFAULT));
 		jdbc.update("DELETE FROM products WHERE id = ?", lock.getId());
 

@@ -8,10 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface ProductRepository extends JpaRepository<Product, UUID> {
 
-    /**
-     * Uses lower() like the products_name_unique index, so the check and the
-     * database constraint agree on what "same name" means.
-     */
+    // Indica si ya existe un producto con ese nombre, sin distinguir mayúsculas.
     @Query("select count(p) > 0 from Product p where lower(p.name) = lower(:name)")
     boolean existsByNameIgnoreCase(@Param("name") String name);
 }

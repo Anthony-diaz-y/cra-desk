@@ -9,11 +9,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 
-/**
- * Put this on an integration test class: it boots the whole application
- * against a real PostgreSQL (Testcontainers) and provides a MockMvc client
- * for calling the HTTP API without opening a network port.
- */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @SpringBootTest

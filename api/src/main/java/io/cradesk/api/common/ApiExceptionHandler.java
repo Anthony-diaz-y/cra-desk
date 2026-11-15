@@ -20,17 +20,10 @@ import io.cradesk.api.catalog.ProductHasVersionsException;
 import io.cradesk.api.catalog.ProductNotFoundException;
 import io.cradesk.api.catalog.VersionNotFoundException;
 
-/**
- * Turns exceptions into RFC 9457 "problem details" JSON responses, so every
- * error has the same shape: {type, title, status, detail, ...}.
- *
- * Extending ResponseEntityExceptionHandler keeps Spring's built-in handling
- * (malformed JSON, wrong HTTP method, ...) and lets us customise validation
- * errors with a per-field "errors" map.
- */
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
+    // Responde 400 con un mapa campo → mensaje cuando falla la validación.
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException e,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
@@ -43,6 +36,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.badRequest().body(problem);
     }
 
+    // Responde 404 en formato problem details.
     @ExceptionHandler({ ProductNotFoundException.class, VersionNotFoundException.class })
     ProblemDetail notFound(RuntimeException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
@@ -52,6 +46,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler({ DuplicateProductException.class, DuplicateVersionException.class,
             ProductHasVersionsException.class })
+    // Responde 409 en formato problem details.
     ProblemDetail conflict(RuntimeException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
         problem.setTitle("Conflict");

@@ -19,7 +19,6 @@ import jakarta.persistence.Table;
 @Table(name = "products")
 public class Product {
 
-    /** Unique index on lower(name), created in V1__catalog.sql. */
     public static final String NAME_UNIQUE = "products_name_unique";
 
     @Id
@@ -42,22 +41,25 @@ public class Product {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    // Constructor vacío que JPA necesita para cargar productos desde la base de datos.
     protected Product() {
     }
 
+    // Crea un producto nuevo con su nombre, descripción y clase del CRA.
     public Product(String name, String description, ProductClass productClass) {
         this.name = name;
         this.description = description;
         this.productClass = productClass;
     }
 
+    // Reemplaza el nombre, la descripción y la clase del producto.
     void update(String name, String description, ProductClass productClass) {
         this.name = name;
         this.description = description;
         this.productClass = productClass;
     }
 
-    // timestamptz stores microseconds; truncating keeps the response equal to what a later GET reads.
+    // Fija la fecha de creación y de modificación antes de guardar por primera vez.
     @PrePersist
     void onCreate() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
@@ -65,31 +67,38 @@ public class Product {
         updatedAt = now;
     }
 
+    // Actualiza la fecha de modificación antes de guardar cambios.
     @PreUpdate
     void onUpdate() {
         updatedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
+    // Devuelve el id del producto.
     public UUID getId() {
         return id;
     }
 
+    // Devuelve el nombre del producto.
     public String getName() {
         return name;
     }
 
+    // Devuelve la descripción del producto.
     public String getDescription() {
         return description;
     }
 
+    // Devuelve la clase del producto según el CRA.
     public ProductClass getProductClass() {
         return productClass;
     }
 
+    // Devuelve cuándo se creó el producto.
     public Instant getCreatedAt() {
         return createdAt;
     }
 
+    // Devuelve cuándo se modificó el producto por última vez.
     public Instant getUpdatedAt() {
         return updatedAt;
     }

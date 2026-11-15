@@ -21,7 +21,6 @@ import com.jayway.jsonpath.JsonPath;
 
 import io.cradesk.api.support.IntegrationTest;
 
-/** Task 5 specification: product versions and protected delete. */
 @IntegrationTest
 @Transactional
 class ProductVersionApiIT {
@@ -29,6 +28,7 @@ class ProductVersionApiIT {
 	@Autowired
 	MockMvc mvc;
 
+	// Comprueba que registrar una versión responde 201 con sus datos.
 	@Test
 	void createVersionReturns201() throws Exception {
 		String productId = createProduct("Smart Lock");
@@ -44,6 +44,7 @@ class ProductVersionApiIT {
 				.andExpect(jsonPath("$.createdAt").exists());
 	}
 
+	// Comprueba que la URL de Location de una versión nueva se puede consultar.
 	@Test
 	void locationOfCreatedVersionCanBeFetched() throws Exception {
 		String productId = createProduct("Smart Lock");
@@ -61,6 +62,7 @@ class ProductVersionApiIT {
 				.andExpect(jsonPath("$.version").value("1.0.0"));
 	}
 
+	// Comprueba que una versión pedida bajo otro producto responde 404.
 	@Test
 	void versionUnderWrongProductReturns404() throws Exception {
 		String lock = createProduct("Smart Lock");
@@ -76,6 +78,7 @@ class ProductVersionApiIT {
 				.andExpect(status().isNotFound());
 	}
 
+	// Comprueba que la versión se guarda sin espacios alrededor.
 	@Test
 	void versionIsTrimmed() throws Exception {
 		String productId = createProduct("Smart Lock");
@@ -87,6 +90,7 @@ class ProductVersionApiIT {
 				.andExpect(jsonPath("$.version").value("1.2.0"));
 	}
 
+	// Comprueba que una versión repetida en el mismo producto responde 409.
 	@Test
 	void duplicateVersionSameProductReturns409() throws Exception {
 		String productId = createProduct("Smart Lock");
@@ -97,6 +101,7 @@ class ProductVersionApiIT {
 				.andExpect(jsonPath("$.status").value(409));
 	}
 
+	// Comprueba que la misma versión en otro producto está permitida.
 	@Test
 	void sameVersionOnOtherProductIsAllowed() throws Exception {
 		String lock = createProduct("Smart Lock");
@@ -106,6 +111,7 @@ class ProductVersionApiIT {
 		addVersion(camera, "{\"version\":\"1.0.0\"}").andExpect(status().isCreated());
 	}
 
+	// Comprueba que las versiones de un producto inexistente responden 404.
 	@Test
 	void versionForUnknownProductReturns404() throws Exception {
 		addVersion(UUID.randomUUID().toString(), "{\"version\":\"1.0.0\"}")
@@ -115,6 +121,7 @@ class ProductVersionApiIT {
 				.andExpect(status().isNotFound());
 	}
 
+	// Comprueba que una versión en blanco responde 400.
 	@Test
 	void blankVersionReturns400() throws Exception {
 		String productId = createProduct("Smart Lock");
@@ -124,6 +131,7 @@ class ProductVersionApiIT {
 				.andExpect(jsonPath("$.errors.version").exists());
 	}
 
+	// Comprueba que las versiones salen de la más reciente a la más antigua.
 	@Test
 	void listReturnsNewestFirst() throws Exception {
 		String productId = createProduct("Smart Lock");
@@ -138,6 +146,7 @@ class ProductVersionApiIT {
 				.andExpect(jsonPath("$[2].version").value("1.0.0"));
 	}
 
+	// Comprueba que no se puede borrar un producto con versiones.
 	@Test
 	void deleteProductWithVersionsReturns409() throws Exception {
 		String productId = createProduct("Smart Lock");
@@ -150,12 +159,14 @@ class ProductVersionApiIT {
 				.andExpect(status().isOk());
 	}
 
+	// Envía el POST que registra una versión y devuelve el resultado.
 	private ResultActions addVersion(String productId, String json) throws Exception {
 		return mvc.perform(post("/api/products/{id}/versions", productId)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(json));
 	}
 
+	// Crea un producto de prueba y devuelve su id.
 	private String createProduct(String name) throws Exception {
 		MvcResult result = mvc.perform(post("/api/products")
 						.contentType(MediaType.APPLICATION_JSON)

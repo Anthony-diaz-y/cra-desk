@@ -25,6 +25,7 @@
 - Un usuario pertenece a una sola empresa. No hay invitaciones de equipo ni varios roles por empresa (spec §7).
 - La demo de solo lectura no llama a la IA y no puede modificar nada (spec §2).
 - Maven wrapper fijado en 3.9.16. No se cambia.
+- **Comentarios:** solo un comentario de una línea en español encima de cada función o método (también tests, constructores y métodos de repositorio), que explica qué hace. Ningún otro comentario: ni Javadoc de clase, ni comentarios de campos, ni comentarios en línea, ni comentarios en SQL, YAML, `pom.xml` o scripts. En Java se escribe `// ...` encima de las anotaciones del método.
 - Tests de integración `*IT.java` con `./mvnw clean verify`.
 - Migraciones nuevas: nunca se edita una migración ya aplicada (`V1`). Todas las restricciones nuevas llevan nombre explícito.
 

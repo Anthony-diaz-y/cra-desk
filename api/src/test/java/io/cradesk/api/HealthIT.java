@@ -16,6 +16,7 @@ class HealthIT {
 	@Autowired
 	MockMvc mvc;
 
+	// Comprueba que el endpoint de salud responde UP.
 	@Test
 	void actuatorHealthIsUp() throws Exception {
 		mvc.perform(get("/actuator/health"))

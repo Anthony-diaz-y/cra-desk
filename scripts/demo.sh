@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
-# CRA Desk — live demo of the catalog API.
-# Prereqs: Docker running, `docker compose up -d`, and the API started with
-#   cd api && set -a && . ../.env && set +a && ./mvnw spring-boot:run
-# Then, from the repo root:  bash scripts/demo.sh
 set -u
 API="${API:-http://localhost:8080}"
-RUN=$(date +%H%M%S)   # unique suffix so the demo can run many times
+RUN=$(date +%H%M%S)
 
+# Imprime el título de un paso de la demo.
 step() { printf '\n\033[1;36m▶ %s\033[0m\n' "$1"; }
-call() { # method path [json]
+# Hace una petición HTTP a la API y muestra el cuerpo y el código de respuesta.
+call() {
   local method=$1 path=$2 body=${3:-}
   printf '\033[2m%s %s %s\033[0m\n' "$method" "$path" "$body"
   if [ -n "$body" ]; then
@@ -17,6 +15,7 @@ call() { # method path [json]
     curl -s -w '\n← HTTP %{http_code}\n' -X "$method" "$API$path"
   fi
 }
+# Extrae el primer id de un JSON leído desde la entrada estándar.
 id_of() { sed -n 's/.*"id":"\([0-9a-f-]*\)".*/\1/p' | head -1; }
 
 step "1. API health"
