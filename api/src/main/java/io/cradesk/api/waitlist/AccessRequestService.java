@@ -19,8 +19,7 @@ public class AccessRequestService {
         this.requests = requests;
     }
 
-    // Guarda la solicitud si el email no estaba ya en la lista; un duplicado se ignora sin error.
-    @Transactional
+    // Guarda la solicitud si el email no estaba ya en la lista; un duplicado, incluso simultáneo, se ignora sin error.
     public void submit(AccessRequestForm form) {
         String email = Emails.normalize(form.email());
         if (requests.existsByEmail(email)) {

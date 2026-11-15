@@ -10,6 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +26,7 @@ import com.jayway.jsonpath.JsonPath;
 
 import io.cradesk.api.identity.DemoProperties;
 import io.cradesk.api.support.IntegrationTest;
+import io.cradesk.api.support.TestTenants;
 
 @IntegrationTest
 @Transactional
@@ -36,6 +40,12 @@ class DemoAccountIT {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    TestTenants tenants;
+
+    @PersistenceContext
+    EntityManager entityManager;
 
     // Asegura que la cuenta demo exista aunque otro test haya vaciado las tablas.
     @BeforeEach
@@ -113,6 +123,25 @@ class DemoAccountIT {
                                 {"email":"%s","password":"any-password-at-all"}
                                 """.formatted(DemoProperties.EMAIL)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // Comprueba que una empresa cualquiera con el nombre de la demo no impide crear la cuenta demo.
+    @Test
+    void organizationWithDemoNameDoesNotBlockSeeding() throws Exception {
+        entityManager.flush();
+        jdbc.update("DELETE FROM product_versions WHERE product_id IN (SELECT p.id FROM products p"
+                + " JOIN organizations o ON o.id = p.organization_id WHERE o.name = ?)", DemoProperties.ORGANIZATION_NAME);
+        jdbc.update("DELETE FROM products WHERE organization_id IN (SELECT id FROM organizations WHERE name = ?)",
+                DemoProperties.ORGANIZATION_NAME);
+        jdbc.update("DELETE FROM users WHERE organization_id IN (SELECT id FROM organizations WHERE name = ?)",
+                DemoProperties.ORGANIZATION_NAME);
+        jdbc.update("DELETE FROM organizations WHERE name = ?", DemoProperties.ORGANIZATION_NAME);
+        tenants.create(DemoProperties.ORGANIZATION_NAME);
+
+        initializer.seed();
+        initializer.seed();
+
+        demoSession();
     }
 
     // Abre la sesión demo y la devuelve.

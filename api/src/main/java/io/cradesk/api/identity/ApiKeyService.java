@@ -1,6 +1,7 @@
 package io.cradesk.api.identity;
 
 import java.time.Clock;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -66,7 +67,7 @@ public class ApiKeyService {
                 .filter(ApiKey::isActive)
                 .filter(k -> SecretTokens.constantTimeEquals(SecretTokens.sha256Hex(rawKey), k.getKeyHash()))
                 .map(k -> {
-                    k.markUsed(clock.instant());
+                    keys.touchLastUsed(k.getId(), clock.instant().truncatedTo(ChronoUnit.MICROS));
                     return new TenantPrincipal(k.getOrganizationId(), k.getCreatedBy(), null, AccessRole.CLI);
                 });
     }

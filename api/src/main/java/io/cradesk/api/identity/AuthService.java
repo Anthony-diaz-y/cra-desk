@@ -42,7 +42,7 @@ public class AuthService {
     @Transactional(noRollbackFor = InvalidCredentialsException.class)
     public void login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         Instant now = clock.instant();
-        UserAccount user = users.findByEmail(Emails.normalize(request.email())).orElse(null);
+        UserAccount user = users.findForLoginByEmail(Emails.normalize(request.email())).orElse(null);
         if (user == null || user.getPasswordHash() == null) {
             passwordEncoder.matches(request.password(), dummyHash);
             throw new InvalidCredentialsException();

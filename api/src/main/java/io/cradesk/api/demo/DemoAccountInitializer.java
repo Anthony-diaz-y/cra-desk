@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import io.cradesk.api.catalog.Product;
 import io.cradesk.api.catalog.ProductClass;
@@ -27,15 +27,18 @@ public class DemoAccountInitializer implements ApplicationRunner {
     private final UserAccountRepository users;
     private final ProductRepository products;
     private final ProductVersionRepository versions;
+    private final TransactionTemplate transactions;
 
-    // Recibe la configuración de la demo y los repositorios donde se crean sus datos.
+    // Recibe la configuración de la demo, los repositorios donde se crean sus datos y el gestor de transacciones.
     public DemoAccountInitializer(DemoProperties properties, OrganizationRepository organizations,
-            UserAccountRepository users, ProductRepository products, ProductVersionRepository versions) {
+            UserAccountRepository users, ProductRepository products, ProductVersionRepository versions,
+            TransactionTemplate transactions) {
         this.properties = properties;
         this.organizations = organizations;
         this.users = users;
         this.products = products;
         this.versions = versions;
+        this.transactions = transactions;
     }
 
     // Al arrancar la aplicación crea la cuenta demo si la demo está activada.
@@ -46,12 +49,18 @@ public class DemoAccountInitializer implements ApplicationRunner {
         }
     }
 
-    // Crea la empresa demo, su usuario sin contraseña y dos productos de ejemplo si todavía no existen.
-    @Transactional
+    // Crea en una sola transacción los datos de la demo si todavía no existe el usuario demo.
     public void seed() {
-        if (organizations.findByName(DemoProperties.ORGANIZATION_NAME).isPresent()) {
-            return;
-        }
+        transactions.executeWithoutResult(status -> {
+            if (users.existsByEmail(DemoProperties.EMAIL)) {
+                return;
+            }
+            createDemoData();
+        });
+    }
+
+    // Guarda la empresa demo, su usuario sin contraseña y dos productos con sus versiones.
+    private void createDemoData() {
         Organization demo = organizations.save(new Organization(DemoProperties.ORGANIZATION_NAME));
         users.save(new UserAccount(demo, DemoProperties.EMAIL, null, AccessRole.DEMO));
 

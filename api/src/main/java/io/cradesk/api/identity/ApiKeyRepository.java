@@ -1,10 +1,14 @@
 package io.cradesk.api.identity;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface ApiKeyRepository extends JpaRepository<ApiKey, UUID> {
 
@@ -13,6 +17,11 @@ public interface ApiKeyRepository extends JpaRepository<ApiKey, UUID> {
 
     // Lista las claves de una empresa de la más reciente a la más antigua.
     List<ApiKey> findAllByOrganizationIdOrderByCreatedAtDesc(UUID organizationId);
+
+    // Actualiza solo la fecha de último uso, sin reescribir las demás columnas como revoked_at.
+    @Modifying
+    @Query("update ApiKey k set k.lastUsedAt = :now where k.id = :id")
+    void touchLastUsed(@Param("id") UUID id, @Param("now") Instant now);
 
     // Busca una clave solo si pertenece a esa empresa.
     Optional<ApiKey> findByIdAndOrganizationId(UUID id, UUID organizationId);

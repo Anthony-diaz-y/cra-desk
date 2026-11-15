@@ -69,11 +69,6 @@ public class ApiKey {
         }
     }
 
-    // Registra el último momento en que se usó la clave.
-    public void markUsed(Instant now) {
-        lastUsedAt = now.truncatedTo(ChronoUnit.MICROS);
-    }
-
     // Fija la fecha de creación antes de guardar por primera vez.
     @PrePersist
     void onCreate() {
