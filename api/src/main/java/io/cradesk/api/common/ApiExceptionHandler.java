@@ -3,6 +3,7 @@ package io.cradesk.api.common;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +62,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
         problem.setTitle("Not found");
         return problem;
+    }
+
+    // Responde 400 con el mapa de errores por campo de una validación propia.
+    @ExceptionHandler(ValidationException.class)
+    ProblemDetail validation(ValidationException e) {
+        return invalid(e.getMessage(), new TreeMap<>(e.errors()));
     }
 
     // Responde 400 en formato problem details.
