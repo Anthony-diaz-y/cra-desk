@@ -27,6 +27,7 @@ import io.cradesk.api.identity.UserAccountRepository;
 public class TestTenants {
 
     public static final String PASSWORD = "correct-horse-battery";
+    public static final String ADMIN_TOKEN = "test-admin-token-0123456789-abcdefghijklmnop";
 
     private final OrganizationRepository organizations;
     private final UserAccountRepository users;

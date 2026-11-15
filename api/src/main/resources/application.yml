@@ -24,6 +24,10 @@ server:
         same-site: lax
         secure: ${SESSION_COOKIE_SECURE:false}
 
+cradesk:
+  admin:
+    token: ${CRADESK_ADMIN_TOKEN:}
+
 management:
   endpoints:
     web:

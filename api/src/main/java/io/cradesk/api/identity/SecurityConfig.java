@@ -4,6 +4,7 @@ import java.time.Clock;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,18 +13,21 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 
 @Configuration
+@EnableConfigurationProperties(AdminProperties.class)
 public class SecurityConfig {
 
     // Define las reglas de acceso, la sesión, el CSRF y las respuestas 401 y 403 de toda la API.
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ProblemDetailAuthHandlers problems,
-            SecurityContextRepository securityContextRepository) throws Exception {
+            SecurityContextRepository securityContextRepository, AdminProperties adminProperties) throws Exception {
         http
+                .addFilterBefore(new AdminTokenFilter(adminProperties, problems), AuthorizationFilter.class)
                 .securityContext(c -> c.securityContextRepository(securityContextRepository))
                 .csrf(c -> c.spa().ignoringRequestMatchers(SecurityConfig::carriesTokenHeader))
                 .httpBasic(c -> c.disable())
@@ -64,10 +68,11 @@ public class SecurityConfig {
         return Clock.systemUTC();
     }
 
-    // Indica si la petición trae una clave de API o un token de admin, que no usan cookies ni necesitan CSRF.
+    // Indica si la petición usa clave de API, token de admin o la ruta de admin, que no usan cookies ni necesitan CSRF.
     static boolean carriesTokenHeader(HttpServletRequest request) {
         String authorization = request.getHeader("Authorization");
         return (authorization != null && authorization.startsWith("Bearer "))
-                || request.getHeader("X-Admin-Token") != null;
+                || request.getHeader("X-Admin-Token") != null
+                || request.getRequestURI().startsWith("/api/admin/");
     }
 }

@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Import;
 
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@SpringBootTest
+@SpringBootTest(properties = "cradesk.admin.token=" + TestTenants.ADMIN_TOKEN)
 @AutoConfigureMockMvc
 @Import({ TestcontainersConfiguration.class, TestTenants.class })
 public @interface IntegrationTest {
