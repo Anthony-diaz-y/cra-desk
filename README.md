@@ -23,14 +23,14 @@ Compliance desk for the **EU Cyber Resilience Act** (Regulation (EU) 2024/2847),
 | Stage | What | State |
 |---|---|---|
 | 0 | Monorepo, PostgreSQL, Spring Boot skeleton | ✅ |
-| 1 | Product catalog API (products + versions), validation, RFC 9457 errors | ✅ 34 integration tests |
-| 2 | Identity & security (sessions, invites, API keys, multi-tenant) | next |
+| 1 | Product catalog API (products + versions), validation, RFC 9457 errors | ✅ |
+| 2 | Identity & security: session login, invitations, read-only demo, API keys, per-organization isolation, waitlist | ✅ 85 integration tests |
 | 3–9 | SBOM ingest, vulnerability matching, Go CLI, reporting + audit, web, DevOps | planned |
 
 ## Local development
 
 ```bash
-cp .env.example .env        # set POSTGRES_PASSWORD
+cp .env.example .env        # set POSTGRES_PASSWORD and CRADESK_ADMIN_TOKEN (e.g. openssl rand -hex 32)
 docker compose up -d        # PostgreSQL 17 on 127.0.0.1:5432
 cd api && ./mvnw verify     # all tests (needs Docker: Testcontainers)
 
@@ -38,28 +38,57 @@ cd api && ./mvnw verify     # all tests (needs Docker: Testcontainers)
 set -a && . ../.env && set +a && ./mvnw spring-boot:run
 ```
 
+| Variable | Purpose | Default |
+|---|---|---|
+| `POSTGRES_PASSWORD` / `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` | Database connection | local compose database |
+| `CRADESK_ADMIN_TOKEN` | Platform admin token (`X-Admin-Token`), at least 32 characters; empty disables admin endpoints | empty |
+| `CRADESK_DEMO_ENABLED` | Seed the read-only demo account on startup | `true` |
+| `SESSION_COOKIE_SECURE` | Send the session cookie only over HTTPS (set `true` in production) | `false` |
+
 ### Live demo
 
 With the API running, from the repo root:
 
 ```bash
-bash scripts/demo.sh
+set -a && . ./.env && set +a && bash scripts/demo.sh
 ```
 
-It registers an IoT product, shows validation (400), duplicate detection (409), firmware versions, the protected delete of compliance records (409) and a 404 — all as RFC 9457 problem details.
+It opens the read-only demo (writes are 403), invites a manufacturer with the admin token, accepts the invitation, registers a product, creates an API key, calls the API with it, revokes it (401) and sends a "Request access" form (202).
 
-### API (catalog)
+## Security model
 
-| Method | Path | Result |
-|---|---|---|
-| `POST` | `/api/products` | 201 + `Location` · 400 invalid · 409 duplicate name (case-insensitive) |
-| `GET` | `/api/products` | 200, sorted by name |
-| `GET` | `/api/products/{id}` | 200 · 404 |
-| `PUT` | `/api/products/{id}` | 200 · 400 · 404 · 409 |
-| `DELETE` | `/api/products/{id}` | 204 · 404 · 409 if it has versions |
-| `POST` | `/api/products/{id}/versions` | 201 · 400 · 404 · 409 duplicate version |
-| `GET` | `/api/products/{id}/versions` | 200, newest first · 404 |
-| `GET` | `/api/products/{id}/versions/{versionId}` | 200 · 404 (also if the version belongs to another product) |
+- **Browser:** JSON login with an HttpOnly, SameSite=Lax session cookie (8 h); CSRF via the `XSRF-TOKEN` cookie and the `X-XSRF-TOKEN` header (logout clears the token: call `GET /api/auth/csrf` again). Five failed logins lock an account for 15 minutes; unknown email and wrong password get the same answer.
+- **CLI:** `Authorization: Bearer crd_<prefix>_<secret>`. Only the SHA-256 of a key is stored; keys are shown once and can be revoked.
+- **Tenancy:** every catalog query is scoped to the caller's organization; another organization's ids return 404.
+- **Accounts:** created only through single-use, 7-day invitations issued by the platform admin. Passwords are BCrypt-hashed.
+- **Demo:** a read-only role; every write is 403.
+
+## API
+
+All errors are RFC 9457 problem details. "Session" means a signed-in member; "key" means a CLI API key.
+
+| Method | Path | Who | Result |
+|---|---|---|---|
+| `GET` | `/api/auth/csrf` | anyone | 204, sets `XSRF-TOKEN` |
+| `POST` | `/api/auth/login` | anyone | 204 · 401 |
+| `POST` | `/api/auth/demo` | anyone | 204 (read-only session) · 404 if disabled |
+| `POST` | `/api/auth/accept-invitation` | anyone with a code | 201 · 400 invalid/expired code · 409 email taken |
+| `GET` | `/api/auth/me` | signed in | 200 · 401 |
+| `POST` | `/api/auth/logout` | signed in | 204 |
+| `POST` | `/api/access-requests` | anyone | 202 (also for an email already on the list) · 400 |
+| `POST` | `/api/admin/invitations` | `X-Admin-Token` | 201 with one-time code · 401 · 409 |
+| `GET` | `/api/admin/access-requests` | `X-Admin-Token` | 200 · 401 |
+| `POST` | `/api/api-keys` | session | 201 with the key, shown once |
+| `GET` | `/api/api-keys` | session | 200 (no secrets) |
+| `DELETE` | `/api/api-keys/{id}` | session | 204 · 404 |
+| `POST` | `/api/products` | session, key | 201 + `Location` · 400 · 409 duplicate name in the organization |
+| `GET` | `/api/products` | session, demo, key | 200, sorted by name |
+| `GET` | `/api/products/{id}` | session, demo, key | 200 · 404 |
+| `PUT` | `/api/products/{id}` | session, key | 200 · 400 · 404 · 409 (duplicate name or stale `rowVersion`) |
+| `DELETE` | `/api/products/{id}` | session, key | 204 · 404 · 409 if it has versions |
+| `POST` | `/api/products/{id}/versions` | session, key | 201 · 400 · 404 · 409 duplicate version |
+| `GET` | `/api/products/{id}/versions` | session, demo, key | 200, newest first · 404 |
+| `GET` | `/api/products/{id}/versions/{versionId}` | session, demo, key | 200 · 404 |
 
 ## License
 

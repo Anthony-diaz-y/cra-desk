@@ -1,49 +1,93 @@
 #!/usr/bin/env bash
 set -u
 API="${API:-http://localhost:8080}"
+ADMIN_TOKEN="${CRADESK_ADMIN_TOKEN:-}"
 RUN=$(date +%H%M%S)
+JAR=$(mktemp)
+LAST=$(mktemp)
+trap 'rm -f "$JAR" "$LAST"' EXIT
 
 # Imprime el título de un paso de la demo.
 step() { printf '\n\033[1;36m▶ %s\033[0m\n' "$1"; }
-# Hace una petición HTTP a la API y muestra el cuerpo y el código de respuesta.
+
+# Devuelve el token CSRF guardado en la cookie XSRF-TOKEN del navegador simulado.
+xsrf() { awk '$6 == "XSRF-TOKEN" { print $7 }' "$JAR" | tail -1; }
+
+# Hace una petición con la sesión y el token CSRF, muestra el cuerpo y el código, y guarda el cuerpo.
 call() {
   local method=$1 path=$2 body=${3:-}
   printf '\033[2m%s %s %s\033[0m\n' "$method" "$path" "$body"
-  if [ -n "$body" ]; then
-    curl -s -w '\n← HTTP %{http_code}\n' -X "$method" "$API$path" -H 'Content-Type: application/json' -d "$body"
-  else
-    curl -s -w '\n← HTTP %{http_code}\n' -X "$method" "$API$path"
-  fi
+  local args=(-s -o "$LAST" -w '%{http_code}' -X "$method" "$API$path" -b "$JAR" -c "$JAR"
+    -H "X-XSRF-TOKEN: $(xsrf)")
+  [ -n "$body" ] && args+=(-H 'Content-Type: application/json' -d "$body")
+  local code
+  code=$(curl "${args[@]}")
+  cat "$LAST"; printf '\n← HTTP %s\n' "$code"
 }
-# Extrae el primer id de un JSON leído desde la entrada estándar.
-id_of() { sed -n 's/.*"id":"\([0-9a-f-]*\)".*/\1/p' | head -1; }
 
-step "1. API health"
+# Hace una petición sin cookies usando una clave de API, muestra el cuerpo y el código.
+call_with_key() {
+  local key=$1 method=$2 path=$3
+  printf '\033[2m%s %s (Authorization: Bearer crd_…)\033[0m\n' "$method" "$path"
+  local code
+  code=$(curl -s -o "$LAST" -w '%{http_code}' -X "$method" "$API$path" -H "Authorization: Bearer $key")
+  cat "$LAST"; printf '\n← HTTP %s\n' "$code"
+}
+
+# Extrae del último cuerpo recibido el valor de texto de un campo JSON.
+field() { sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p" "$LAST" | head -1; }
+
+step "1. API health → 200"
 call GET /actuator/health
 
-step "2. Register a product (an IoT smart lock, CRA 'Important Class I')"
-LOCK=$(curl -s -X POST "$API/api/products" -H 'Content-Type: application/json' \
-  -d '{"name":"Demo Smart Lock '"$RUN"'","description":"Wi-Fi door lock","productClass":"IMPORTANT_CLASS_I"}' | id_of)
-[ -n "$LOCK" ] || { echo "Could not create the demo product. Is the API running at $API?"; exit 1; }
-call GET "/api/products/$LOCK"
+step "2. Get a CSRF token (cookie XSRF-TOKEN) → 204"
+call GET /api/auth/csrf
 
-step "3. Validation: blank name → 400 with per-field errors"
-call POST /api/products '{"name":"   ","productClass":"DEFAULT"}'
+step "3. 'Try the demo' button: read-only session → 204, then the sample products → 200"
+call POST /api/auth/demo
+call GET /api/products
 
-step "4. Duplicate name, different case → 409 Conflict"
-call POST /api/products '{"name":"demo smart lock '"$RUN"'","productClass":"DEFAULT"}'
+step "4. The demo account cannot write → 403"
+call POST /api/products '{"name":"Hacked","productClass":"DEFAULT"}'
 
-step "5. Register two firmware versions"
-call POST "/api/products/$LOCK/versions" '{"version":"1.0.0","releasedAt":"2026-09-01"}'
-call POST "/api/products/$LOCK/versions" '{"version":" 1.1.0 ","releasedAt":"2026-11-01"}'
+step "5. Log out → 204 (logout also clears the CSRF token, so get a fresh one → 204)"
+call POST /api/auth/logout
+call GET /api/auth/csrf
 
-step "6. List versions (newest first; note ' 1.1.0 ' was trimmed)"
-call GET "/api/products/$LOCK/versions"
+if [ -z "$ADMIN_TOKEN" ]; then
+  printf '\nSet CRADESK_ADMIN_TOKEN (same value as the API) to run the invitation and API key steps.\n'
+  exit 0
+fi
 
-step "7. Protected delete: a product with versions is a compliance record → 409"
-call DELETE "/api/products/$LOCK"
+step "6. Platform admin invites a manufacturer → 201 (the code is shown only once)"
+printf '\033[2mPOST /api/admin/invitations (X-Admin-Token)\033[0m\n'
+code=$(curl -s -o "$LAST" -w '%{http_code}' -X POST "$API/api/admin/invitations" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"email":"maker-'"$RUN"'@example.com"}')
+cat "$LAST"; printf '\n← HTTP %s\n' "$code"
+INVITE=$(field code)
+[ -n "$INVITE" ] || { echo "Could not create the invitation. Is CRADESK_ADMIN_TOKEN the same as the API's?"; exit 1; }
 
-step "8. Unknown product → 404 problem details"
-call GET /api/products/00000000-0000-0000-0000-000000000000
+step "7. Accept the invitation: company + account + session → 201"
+call POST /api/auth/accept-invitation \
+  '{"code":"'"$INVITE"'","email":"maker-'"$RUN"'@example.com","password":"a-long-enough-password","organizationName":"Maker '"$RUN"' GmbH"}'
+
+step "8. Register an IoT product in the new company → 201"
+call POST /api/products '{"name":"Smart Lock","productClass":"IMPORTANT_CLASS_I"}'
+
+step "9. Create an API key for the CLI → 201 (shown only once)"
+call POST /api/api-keys '{"name":"CI pipeline"}'
+KEY=$(field key)
+KEY_ID=$(field id)
+
+step "10. The CLI calls the API with the key, no cookies → 200"
+call_with_key "$KEY" GET /api/products
+
+step "11. Revoke the key → 204, then the same key → 401"
+call DELETE "/api/api-keys/$KEY_ID"
+call_with_key "$KEY" GET /api/products
+
+step "12. Public 'Request access' form → 202"
+call POST /api/access-requests '{"email":"curious-'"$RUN"'@example.com","company":"Curious Devices"}'
 
 printf '\n\033[1;32m✔ Demo finished.\033[0m\n'
