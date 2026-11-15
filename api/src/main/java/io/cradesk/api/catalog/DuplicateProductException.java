@@ -1,6 +1,8 @@
 package io.cradesk.api.catalog;
 
-public class DuplicateProductException extends RuntimeException {
+import io.cradesk.api.common.ConflictException;
+
+public class DuplicateProductException extends ConflictException {
     // Crea el error de producto con nombre repetido.
     public DuplicateProductException(String name) {
         super("A product named '" + name + "' already exists");

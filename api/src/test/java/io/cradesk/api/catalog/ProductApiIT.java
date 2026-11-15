@@ -247,6 +247,7 @@ class ProductApiIT {
 								{"name":"Smart Lock","productClass":"SUPER_CRITICAL"}
 								"""))
 				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.productClass").exists())
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
 	}
 

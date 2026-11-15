@@ -1,6 +1,8 @@
 package io.cradesk.api.catalog;
 
-public class DuplicateVersionException extends RuntimeException {
+import io.cradesk.api.common.ConflictException;
+
+public class DuplicateVersionException extends ConflictException {
     // Crea el error de versión repetida en el mismo producto.
     public DuplicateVersionException(String version) {
         super("Version '" + version + "' already exists for this product");
