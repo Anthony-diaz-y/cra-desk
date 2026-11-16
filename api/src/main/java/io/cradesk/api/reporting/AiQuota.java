@@ -38,6 +38,12 @@ public class AiQuota {
         return updated == 1;
     }
 
+    // Devuelve cuántos borradores con IA usó hoy la empresa, o 0 si todavía ninguno.
+    public int usedToday(UUID organizationId) {
+        return jdbc.queryForList("SELECT count FROM ai_usage WHERE organization_id = ? AND day = ?", Integer.class,
+                organizationId, today()).stream().findFirst().orElse(0);
+    }
+
     // Devuelve a ese día de la empresa la unidad de un borrador con IA que no se pudo generar.
     public void refund(UUID organizationId, LocalDate day) {
         jdbc.update("UPDATE ai_usage SET count = count - 1 WHERE organization_id = ? AND day = ? AND count > 0",
