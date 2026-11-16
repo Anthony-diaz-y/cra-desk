@@ -1,14 +1,12 @@
-import { ShieldCheck } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 import { cn } from "@/lib/utils";
 
-// Marca de CRA Desk: escudo con el nombre.
+// Marca de CRA Desk: el escudo con reloj y check, junto al nombre.
 export function Logo({ className }: { className?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-2 font-semibold tracking-tight", className)}>
-      <span className="grid size-7 place-items-center rounded-lg bg-brand text-brand-foreground">
-        <ShieldCheck className="size-4" />
-      </span>
-      CRA Desk
+    <span className={cn("inline-flex items-center gap-2.5 font-semibold tracking-tight", className)}>
+      <BrandMark variant="simple" className="size-8" />
+      <span className="text-[15px] leading-none">CRA Desk</span>
     </span>
   );
 }
