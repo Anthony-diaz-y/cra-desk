@@ -49,7 +49,7 @@ export function DismissDialog({
         method: "POST",
         json: { reason: reason.trim() },
       });
-      await client.invalidateQueries({ queryKey: ["findings"] });
+      await Promise.all([client.invalidateQueries({ queryKey: ["findings"] }), client.invalidateQueries({ queryKey: ["audit"] })]);
       toast.success(`${cveId} dismissed`);
       setOpen(false);
     } catch (e) {

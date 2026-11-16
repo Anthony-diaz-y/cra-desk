@@ -2,6 +2,8 @@ import type { Problem } from "./types";
 
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+export const READ_ONLY_MESSAGE = "Read-only demo — changes are disabled.";
+
 let unauthorizedHandler: () => void = () => {};
 
 export class ApiError extends Error {
@@ -81,6 +83,9 @@ async function request(path: string, init: ApiInit): Promise<Response> {
   }
   if (response.status === 401) {
     unauthorizedHandler();
+  }
+  if (write && response.status === 403) {
+    throw new ApiError(403, { ...(await problemOf(response)), status: 403, detail: READ_ONLY_MESSAGE });
   }
   if (!response.ok) {
     throw new ApiError(response.status, await problemOf(response));

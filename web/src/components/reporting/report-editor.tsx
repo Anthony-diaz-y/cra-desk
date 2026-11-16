@@ -36,7 +36,8 @@ function authorLabel(report: Report): string {
 // Editor de un reporte del art. 14: generar borrador, editar campos, aprobar, marcar enviado y exportar.
 export function ReportEditor({ eventId, report, ai }: { eventId: string; report: Report; ai: AiStatus | undefined }) {
   const client = useQueryClient();
-  const { isDemo } = useSession();
+  const { isDemo: demo, isLoading: sessionLoading } = useSession();
+  const isDemo = demo || sessionLoading;
   const url = `/api/events/${eventId}/reports/${report.type}`;
   const [values, setValues] = useState<Record<string, string>>(report.content ?? {});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -56,6 +57,7 @@ export function ReportEditor({ eventId, report, ai }: { eventId: string; report:
       client.invalidateQueries({ queryKey: ["event", eventId] }),
       client.invalidateQueries({ queryKey: ["events"] }),
       client.invalidateQueries({ queryKey: ["ai-status"] }),
+      client.invalidateQueries({ queryKey: ["audit"] }),
     ]);
   }
 

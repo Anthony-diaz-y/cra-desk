@@ -1,9 +1,9 @@
 import "@/test/navigation-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { navigation, resetNavigation, router } from "@/test/navigation-mock";
-import { callsTo, mockApi } from "@/test/render";
+import { DEMO, callsTo, mockApi, renderWithSession, testClient } from "@/test/render";
 import { LoginForm } from "./login-form";
 import { InviteForm } from "./invite-form";
 
@@ -14,7 +14,7 @@ describe("LoginForm", () => {
   it("loginSuccessGoesToNext", async () => {
     navigation.search = "next=%2Fapp%2Ffindings";
     const spy = mockApi([{ method: "POST", path: "/api/auth/login", status: 204 }]);
-    render(<LoginForm />);
+    renderWithSession(<LoginForm />);
 
     await userEvent.type(screen.getByLabelText(/email/i), "maker@example.com");
     await userEvent.type(screen.getByLabelText(/password/i), "correct-horse-battery");
@@ -24,10 +24,26 @@ describe("LoginForm", () => {
     expect(callsTo(spy, "POST", "/api/auth/login")[0].json).toEqual({ email: "maker@example.com", password: "correct-horse-battery" });
   });
 
+  it("loginClearsThePreviousSessionCache", async () => {
+    mockApi([{ method: "POST", path: "/api/auth/login", status: 204 }]);
+    const client = testClient();
+    client.setQueryData(["me"], DEMO);
+    client.setQueryData(["events"], [{ id: "demo-event" }]);
+    renderWithSession(<LoginForm />, undefined, client);
+
+    await userEvent.type(screen.getByLabelText(/email/i), "maker@example.com");
+    await userEvent.type(screen.getByLabelText(/password/i), "correct-horse-battery");
+    await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await vi.waitFor(() => expect(router.replace).toHaveBeenCalled());
+    expect(client.getQueryData(["me"])).toBeUndefined();
+    expect(client.getQueryData(["events"])).toBeUndefined();
+  });
+
   it("ignoresNextOutsideTheApp", async () => {
     navigation.search = "next=https%3A%2F%2Fevil.example";
     mockApi([{ method: "POST", path: "/api/auth/login", status: 204 }]);
-    render(<LoginForm />);
+    renderWithSession(<LoginForm />);
 
     await userEvent.type(screen.getByLabelText(/email/i), "maker@example.com");
     await userEvent.type(screen.getByLabelText(/password/i), "correct-horse-battery");
@@ -38,7 +54,7 @@ describe("LoginForm", () => {
 
   it("loginShowsInvalidCredentials", async () => {
     mockApi([{ method: "POST", path: "/api/auth/login", status: 401, body: { status: 401, detail: "Invalid email or password" } }]);
-    render(<LoginForm />);
+    renderWithSession(<LoginForm />);
 
     await userEvent.type(screen.getByLabelText(/email/i), "maker@example.com");
     await userEvent.type(screen.getByLabelText(/password/i), "wrong-password-123");
@@ -56,7 +72,7 @@ describe("InviteForm", () => {
   it("inviteValidatesPasswordLength", async () => {
     navigation.search = "code=abc123";
     const spy = mockApi([{ method: "POST", path: "/api/auth/accept-invitation", status: 201 }]);
-    render(<InviteForm />);
+    renderWithSession(<InviteForm />);
 
     expect(screen.getByLabelText(/invitation code/i)).toHaveValue("abc123");
     await userEvent.type(screen.getByLabelText(/^email/i), "maker@example.com");
@@ -71,7 +87,7 @@ describe("InviteForm", () => {
   it("acceptsInvitationAndOpensTheApp", async () => {
     navigation.search = "code=abc123";
     const spy = mockApi([{ method: "POST", path: "/api/auth/accept-invitation", status: 201 }]);
-    render(<InviteForm />);
+    renderWithSession(<InviteForm />);
 
     await userEvent.type(screen.getByLabelText(/^email/i), "maker@example.com");
     await userEvent.type(screen.getByLabelText(/company/i), "Maker GmbH");

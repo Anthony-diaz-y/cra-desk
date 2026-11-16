@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
-import { apiFetch } from "@/lib/api";
+import { ApiError, apiFetch } from "@/lib/api";
 import { dateTime } from "@/lib/format";
 import { CanWrite } from "@/lib/session";
 import type { VersionVulnerabilities } from "@/lib/types";
@@ -16,9 +16,13 @@ export function ScanStatus({ productId, versionId, data }: { productId: string; 
 
   // Pide un nuevo escaneo a la API.
   async function rescan() {
-    await apiFetch(`/api/products/${productId}/versions/${versionId}/scan`, { method: "POST" });
-    toast.success("Rescan queued");
-    await client.invalidateQueries({ queryKey: ["vulnerabilities", versionId] });
+    try {
+      await apiFetch(`/api/products/${productId}/versions/${versionId}/scan`, { method: "POST" });
+      toast.success("Rescan queued");
+      await client.invalidateQueries({ queryKey: ["vulnerabilities", versionId] });
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : "Could not queue the rescan");
+    }
   }
 
   return (

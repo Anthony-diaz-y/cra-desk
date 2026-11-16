@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { ApiError, apiFetch } from "@/lib/api";
 import { safeNext } from "@/lib/routes";
@@ -12,6 +13,7 @@ import { Field } from "./field";
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const client = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +26,7 @@ export function LoginForm() {
     setError(null);
     try {
       await apiFetch("/api/auth/login", { method: "POST", json: { email: email.trim(), password } });
+      client.clear();
       router.replace(safeNext(params.get("next")));
     } catch (e) {
       setError(e instanceof ApiError && (e.status === 401 || e.status === 429) ? e.message : "Could not sign in. Please try again.");

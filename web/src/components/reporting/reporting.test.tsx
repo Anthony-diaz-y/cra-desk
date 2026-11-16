@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { resetNavigation } from "@/test/navigation-mock";
-import { DEMO, callsTo, mockApi, renderWithSession } from "@/test/render";
+import { DEMO, callsTo, mockApi, renderWithSession, testClient } from "@/test/render";
 import type { AiStatus, Report } from "@/lib/types";
 import { DeadlineClock } from "./deadline-clock";
 import { ReportEditor } from "./report-editor";
@@ -51,6 +51,18 @@ describe("DeadlineClock", () => {
     });
     expect(screen.getByText("Overdue")).toBeInTheDocument();
     expect(screen.getByRole("timer")).not.toHaveTextContent("-");
+  });
+
+  it("clockTurnsDueSoonInTheLastQuarter", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+    render(<DeadlineClock dueAt="2026-11-16T10:00:11Z" startAt="2026-11-16T09:59:31Z" status="PENDING" sentAt={null} />);
+
+    expect(screen.getByText("Pending")).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(screen.getByText("Due soon")).toBeInTheDocument();
   });
 
   it("sentClockStops", () => {
@@ -136,6 +148,27 @@ describe("ReportEditor", () => {
     expect(screen.queryByRole("button", { name: /approve/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /use template/i })).not.toBeInTheDocument();
     expect(screen.getByText(/ENISA-1/)).toBeInTheDocument();
+  });
+
+  it("savingRefreshesTheAuditLog", async () => {
+    mockApi([{ method: "PUT", path: REPORT_URL, body: report({ generatedBy: "MANUAL" }) }]);
+    const client = testClient();
+    client.setQueryData(["audit", 0], { items: [], page: 0, size: 50, total: 0, totalPages: 0 });
+    renderWithSession(<ReportEditor eventId="e1" report={report()} ai={AI_ON} />, undefined, client);
+    renderWithSession(<span />);
+
+    await userEvent.type(screen.getByLabelText("Immediate measures"), " Done.");
+    await userEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await vi.waitFor(() => expect(client.getQueryState(["audit", 0])?.isInvalidated).toBe(true));
+  });
+
+  it("writesDisabledWhileSessionLoads", () => {
+    mockApi([]);
+    renderWithSession(<ReportEditor eventId="e1" report={report()} ai={AI_ON} />, null);
+
+    expect(screen.getByRole("button", { name: /use template/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /approve/i })).toBeDisabled();
   });
 
   it("demoCannotEdit", () => {

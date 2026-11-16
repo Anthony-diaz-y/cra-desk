@@ -45,14 +45,16 @@ function NewKeyPanel({ created, onDone }: { created: ApiKeyCreated; onDone: () =
 // Gestión de claves de API para la CLI: crear (se muestra una vez), listar y revocar.
 export function ApiKeys() {
   const client = useQueryClient();
-  const { isDemo } = useSession();
-  const { data, error, isLoading } = useQuery({ queryKey: ["api-keys"], queryFn: () => apiFetch<ApiKey[]>("/api/api-keys"), enabled: !isDemo });
+  const { isDemo, isLoading: sessionLoading } = useSession();
+  const { data, error, isLoading } = useQuery({ queryKey: ["api-keys"], queryFn: () => apiFetch<ApiKey[]>("/api/api-keys"), enabled: !isDemo && !sessionLoading });
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [created, setCreated] = useState<ApiKeyCreated | null>(null);
   const [nameError, setNameError] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
   const [revoking, setRevoking] = useState<ApiKey | null>(null);
+  const [revokeError, setRevokeError] = useState<string | null>(null);
+  const [revokeBusy, setRevokeBusy] = useState(false);
 
   // Crea la clave en la API y la guarda solo en memoria para mostrarla una vez.
   async function create(event: FormEvent) {
@@ -62,7 +64,7 @@ export function ApiKeys() {
     try {
       setCreated(await apiFetch<ApiKeyCreated>("/api/api-keys", { method: "POST", json: { name: name.trim() } }));
       setName("");
-      await client.invalidateQueries({ queryKey: ["api-keys"] });
+      await Promise.all([client.invalidateQueries({ queryKey: ["api-keys"] }), client.invalidateQueries({ queryKey: ["audit"] })]);
     } catch (e) {
       setNameError(e instanceof ApiError ? (e.fieldErrors.name ?? e.message) : "Could not create the key.");
     } finally {
@@ -76,15 +78,23 @@ export function ApiKeys() {
     setCreated(null);
   }
 
-  // Revoca la clave elegida en la API.
+  // Revoca la clave elegida en la API y muestra el error en el diálogo si falla.
   async function revoke() {
     if (!revoking) {
       return;
     }
-    await apiFetch(`/api/api-keys/${revoking.id}`, { method: "DELETE" });
-    toast.success(`${revoking.name} revoked`);
-    setRevoking(null);
-    await client.invalidateQueries({ queryKey: ["api-keys"] });
+    setRevokeBusy(true);
+    setRevokeError(null);
+    try {
+      await apiFetch(`/api/api-keys/${revoking.id}`, { method: "DELETE" });
+      toast.success(`${revoking.name} revoked`);
+      setRevoking(null);
+      await Promise.all([client.invalidateQueries({ queryKey: ["api-keys"] }), client.invalidateQueries({ queryKey: ["audit"] })]);
+    } catch (e) {
+      setRevokeError(e instanceof ApiError ? e.message : "Could not revoke the key.");
+    } finally {
+      setRevokeBusy(false);
+    }
   }
 
   return (
@@ -98,7 +108,7 @@ export function ApiKeys() {
           <Button onClick={() => setCreating(true)} className="gap-1.5"><Plus className="size-4" /> New key</Button>
         </CanWrite>
       </div>
-      {isDemo ? (
+      {sessionLoading ? <Skeleton className="h-24 rounded-2xl" /> : isDemo ? (
         <EmptyState icon={<KeyRound className="size-5" />} title="API keys are not available in the demo" text="With an account you can create keys for the cradesk CLI and the GitHub Action." />
       ) : error ? <LoadError error={error} /> : isLoading ? <Skeleton className="h-24 rounded-2xl" /> : !data?.length ? (
         <EmptyState icon={<KeyRound className="size-5" />} title="No API keys" text="Create one to upload SBOMs from your CI pipeline." />
@@ -137,15 +147,16 @@ export function ApiKeys() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={revoking !== null} onOpenChange={(open) => !open && setRevoking(null)}>
+      <Dialog open={revoking !== null} onOpenChange={(open) => { if (!open) { setRevoking(null); setRevokeError(null); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Revoke {revoking?.name}?</DialogTitle>
             <DialogDescription>Pipelines using this key will get 401 right away. This can&apos;t be undone.</DialogDescription>
           </DialogHeader>
+          {revokeError && <p role="alert" className="text-sm text-danger">{revokeError}</p>}
           <DialogFooter>
             <Button variant="outline" onClick={() => setRevoking(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={revoke}>Revoke key</Button>
+            <Button variant="destructive" onClick={revoke} disabled={revokeBusy}>{revokeBusy && <Loader2 className="size-4 animate-spin" />}Revoke key</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

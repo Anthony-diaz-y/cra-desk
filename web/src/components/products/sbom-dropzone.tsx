@@ -15,7 +15,8 @@ type UploadError = { message: string; fields: Record<string, string> };
 // Zona para arrastrar o elegir un SBOM CycloneDX JSON y subirlo a la versión.
 export function SbomDropzone({ productId, versionId }: { productId: string; versionId: string }) {
   const client = useQueryClient();
-  const { isDemo } = useSession();
+  const { isDemo: demo, isLoading: sessionLoading } = useSession();
+  const isDemo = demo || sessionLoading;
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -39,6 +40,7 @@ export function SbomDropzone({ productId, versionId }: { productId: string; vers
         client.invalidateQueries({ queryKey: ["sbom", versionId] }),
         client.invalidateQueries({ queryKey: ["components", versionId] }),
         client.invalidateQueries({ queryKey: ["vulnerabilities", versionId] }),
+        client.invalidateQueries({ queryKey: ["audit"] }),
       ]);
       toast.success("SBOM uploaded — scanning for vulnerabilities");
     } catch (e) {

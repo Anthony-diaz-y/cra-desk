@@ -51,7 +51,7 @@ docker compose -f "$ROOT/docker-compose.yml" exec -T postgres psql -q -U cradesk
   -c "DROP DATABASE IF EXISTS cradesk_e2e WITH (FORCE)" -c "CREATE DATABASE cradesk_e2e" > /dev/null
 
 (cd "$ROOT/api" && ./mvnw -q -DskipTests package)
-(cd "$ROOT/web" && CRADESK_API_URL="http://localhost:$API_PORT" npm run build > "$LOGS/web-build.log" 2>&1)
+(cd "$ROOT/web" && NEXT_DIST_DIR=.next-e2e CRADESK_API_URL="http://localhost:$API_PORT" npm run build > "$LOGS/web-build.log" 2>&1)
 
 FAKE_FEEDS_PORT="$FEEDS_PORT" exec node "$ROOT/web/e2e/fake-feeds.mjs" > "$LOGS/fake-feeds.log" 2>&1 &
 PIDS+=($!)
@@ -64,7 +64,7 @@ PIDS+=($!)
   exec java -jar target/api-0.0.1-SNAPSHOT.jar > "$LOGS/api.log" 2>&1) &
 PIDS+=($!)
 
-(cd "$ROOT/web" && CRADESK_API_URL="http://localhost:$API_PORT" exec node node_modules/next/dist/bin/next start -p "$WEB_PORT" > "$LOGS/web.log" 2>&1) &
+(cd "$ROOT/web" && NEXT_DIST_DIR=.next-e2e CRADESK_API_URL="http://localhost:$API_PORT" exec node node_modules/next/dist/bin/next start -p "$WEB_PORT" > "$LOGS/web.log" 2>&1) &
 PIDS+=($!)
 
 wait_for "http://127.0.0.1:$API_PORT/actuator/health" "API"

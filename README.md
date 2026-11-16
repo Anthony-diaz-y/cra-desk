@@ -29,7 +29,7 @@ Compliance desk for the **EU Cyber Resilience Act** (Regulation (EU) 2024/2847),
 | 4 | Vulnerability monitoring: OSV matching, CISA KEV catalog, findings to review, scan queue and daily rescan | ✅ |
 | 5 | `cradesk` Go CLI (login, upload, wait, fail on KEV) and GitHub Action | ✅ 175 API tests + Go tests |
 | 6 | Reporting: finding review, CRA 24 h / 72 h / 14 d clocks, AI or template drafts, approval, sent to ENISA, JSON/Markdown export; hash-chained audit log | ✅ 244 API tests |
-| 7 | Web: animated landing page, read-only demo, products and SBOM upload, findings review, live CRA clocks, report editor, audit log, API keys; strict nonce CSP | ✅ 54 web tests + 2 end-to-end flows |
+| 7 | Web: animated landing page, read-only demo, products and SBOM upload, findings review, live CRA clocks, report editor, audit log, API keys; strict nonce CSP | ✅ 62 web tests + 2 end-to-end flows |
 | 8–9 | DevOps, polish | planned |
 
 ## Local development

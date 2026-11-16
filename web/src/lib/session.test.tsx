@@ -27,6 +27,23 @@ describe("session", () => {
     await vi.waitFor(() => expect(router.replace).toHaveBeenCalledWith("/login?next=%2Fapp%2Ffindings"));
   });
 
+  it("unauthorizedClearsCachedData", async () => {
+    mockApi([{ path: "/api/auth/me", status: 401, body: { status: 401 } }]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["events"], [{ id: "someone-elses-event" }]);
+
+    render(
+      <QueryClientProvider client={client}>
+        <SessionProvider>
+          <p>app</p>
+        </SessionProvider>
+      </QueryClientProvider>,
+    );
+
+    await vi.waitFor(() => expect(router.replace).toHaveBeenCalled());
+    expect(client.getQueryData(["events"])).toBeUndefined();
+  });
+
   it("safeNextOnlyAllowsAppPaths", () => {
     expect(safeNext("/app/events/1")).toBe("/app/events/1");
     expect(safeNext("https://evil.example")).toBe("/app");

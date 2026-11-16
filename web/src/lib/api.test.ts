@@ -82,7 +82,9 @@ describe("apiFetch", () => {
     document.cookie = "XSRF-TOKEN=tok; path=/";
     mockFetch(respond(403, { status: 403, detail: "no" }), respond(204), respond(403, { status: 403, detail: "no" }));
 
-    await expect(apiFetch("/api/products", { method: "POST", json: {} })).rejects.toMatchObject({ status: 403 });
+    const error = await apiFetch("/api/products", { method: "POST", json: {} }).catch((e: unknown) => e);
+    expect(error).toMatchObject({ status: 403 });
+    expect((error as ApiError).message).toBe("Read-only demo — changes are disabled.");
   });
 
   it("mapsProblemFieldErrors", async () => {

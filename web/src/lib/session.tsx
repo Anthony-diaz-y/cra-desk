@@ -2,7 +2,7 @@
 
 import { cloneElement, createContext, isValidElement, useContext, useEffect, type ReactElement, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, onUnauthorized } from "./api";
 import { loginRedirect } from "./routes";
 import type { Me } from "./types";
@@ -11,14 +11,18 @@ export type SessionValue = { me: Me | undefined; isDemo: boolean; isLoading: boo
 
 export const SessionContext = createContext<SessionValue>({ me: undefined, isDemo: false, isLoading: true });
 
-// Carga quién es el usuario y manda al login cuando la API responde 401.
+// Carga quién es el usuario y, cuando la API responde 401, borra los datos guardados y manda al login.
 export function SessionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const client = useQueryClient();
   useEffect(() => {
-    onUnauthorized(() => router.replace(loginRedirect(pathname)));
+    onUnauthorized(() => {
+      client.removeQueries({ predicate: (query) => query.queryKey[0] !== "me" });
+      router.replace(loginRedirect(pathname));
+    });
     return () => onUnauthorized(() => {});
-  }, [router, pathname]);
+  }, [router, pathname, client]);
   const { data, isLoading } = useQuery({
     queryKey: ["me"],
     queryFn: () => apiFetch<Me>("/api/auth/me"),

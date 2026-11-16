@@ -33,7 +33,7 @@ function ConfirmButton({ finding }: { finding: Finding }) {
     setBusy(true);
     try {
       const event = await apiFetch<EventResponse>(`/api/findings/${finding.id}/confirm`, { method: "POST" });
-      await Promise.all([client.invalidateQueries({ queryKey: ["findings"] }), client.invalidateQueries({ queryKey: ["events"] })]);
+      await Promise.all([client.invalidateQueries({ queryKey: ["findings"] }), client.invalidateQueries({ queryKey: ["events"] }), client.invalidateQueries({ queryKey: ["audit"] })]);
       toast.success(`${finding.cveId} confirmed — clocks started`);
       router.push(`/app/events/${event.id}`);
     } catch (e) {

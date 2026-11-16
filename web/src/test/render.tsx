@@ -15,10 +15,14 @@ export const MEMBER: Me = {
 
 export const DEMO: Me = { ...MEMBER, email: null, organizationName: "CRA Desk Demo", role: "DEMO" };
 
-// Renderiza con una caché de datos nueva y la sesión indicada.
-export function renderWithSession(ui: ReactElement, me: Me = MEMBER) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  const session: SessionValue = { me, isDemo: me.role === "DEMO", isLoading: false };
+// Crea una caché de datos sin reintentos para los tests.
+export function testClient(): QueryClient {
+  return new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+}
+
+// Renderiza con la caché indicada (o una nueva) y la sesión indicada; con null simula la sesión cargando.
+export function renderWithSession(ui: ReactElement, me: Me | null = MEMBER, client = testClient()) {
+  const session: SessionValue = { me: me ?? undefined, isDemo: me?.role === "DEMO", isLoading: me === null };
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>
       <SessionContext.Provider value={session}>{children}</SessionContext.Provider>

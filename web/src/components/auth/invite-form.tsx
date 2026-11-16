@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { ApiError, apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ const MIN_PASSWORD = 12;
 export function InviteForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const client = useQueryClient();
   const [code, setCode] = useState(params.get("code") ?? "");
   const [email, setEmail] = useState("");
   const [organizationName, setOrganizationName] = useState("");
@@ -34,6 +36,7 @@ export function InviteForm() {
         method: "POST",
         json: { code: code.trim(), email: email.trim(), password, organizationName: organizationName.trim() },
       });
+      client.clear();
       router.replace("/app");
     } catch (e) {
       if (e instanceof ApiError) {

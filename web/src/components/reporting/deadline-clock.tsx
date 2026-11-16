@@ -46,15 +46,9 @@ export function DeadlineClock({
   const sent = sentAt !== null;
   const now = useNow(1000, !sent);
   const left = remainingMs(dueAt, now);
-  const live: DeadlineStatus = sent
-    ? status
-    : left <= 0
-      ? "OVERDUE"
-      : status === "OVERDUE"
-        ? "DUE_SOON"
-        : status;
-  const tone = statusTone(live);
   const total = Math.max(1, Date.parse(dueAt) - Date.parse(startAt));
+  const live: DeadlineStatus = sent ? status : left <= 0 ? "OVERDUE" : left <= total * 0.25 ? "DUE_SOON" : "PENDING";
+  const tone = statusTone(live);
   const progress = sent ? 1 : Math.min(1, Math.max(0, left / total));
   const ring = size === "lg" ? "size-28" : "size-16";
   return (
