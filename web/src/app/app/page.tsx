@@ -1,4 +1,9 @@
-// Panel de plazos (provisional hasta la tarea de reportes).
+import type { Metadata } from "next";
+import { Overview } from "@/components/reporting/overview";
+
+export const metadata: Metadata = { title: "Deadlines" };
+
+// Página principal de la app: el panel de plazos.
 export default function OverviewPage() {
-  return <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>;
+  return <Overview />;
 }

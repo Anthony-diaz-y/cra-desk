@@ -34,11 +34,14 @@ export function useSession(): SessionValue {
   return useContext(SessionContext);
 }
 
-// Deshabilita su botón hijo en la demo de solo lectura y explica por qué.
+// Deshabilita su botón hijo mientras carga la sesión y en la demo de solo lectura, explicando por qué.
 export function CanWrite({ children }: { children: ReactElement<{ disabled?: boolean }> }) {
-  const { isDemo } = useSession();
-  if (!isDemo || !isValidElement(children)) {
+  const { isDemo, isLoading } = useSession();
+  if ((!isDemo && !isLoading) || !isValidElement(children)) {
     return children;
+  }
+  if (!isDemo) {
+    return cloneElement(children, { disabled: true });
   }
   return (
     <span title="Read-only demo" className="inline-flex cursor-not-allowed">
