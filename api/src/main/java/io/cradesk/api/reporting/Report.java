@@ -82,6 +82,49 @@ public class Report {
         this.updatedAt = now.truncatedTo(ChronoUnit.MICROS);
     }
 
+    // Indica si el reporte ya se marcó enviado a ENISA.
+    public boolean isSent() {
+        return sentAt != null;
+    }
+
+    // Guarda un borrador nuevo hecho por ese generador, sin aprobar.
+    public void draft(String contentJson, String generator, String error, Instant now) {
+        content = contentJson;
+        generatedBy = generator;
+        aiError = error;
+        unapprove(now);
+    }
+
+    // Reemplaza el contenido por el que editó una persona y quita la aprobación.
+    public void edit(String contentJson, Instant now) {
+        content = contentJson;
+        unapprove(now);
+    }
+
+    // Aprueba el borrador actual con quién y cuándo.
+    public void approve(UUID userId, Instant now) {
+        draftStatus = DraftStatus.APPROVED;
+        approvedBy = userId;
+        approvedAt = now.truncatedTo(ChronoUnit.MICROS);
+        updatedAt = approvedAt;
+    }
+
+    // Marca el reporte como enviado a ENISA, lo que detiene su reloj.
+    public void markSent(UUID userId, Instant sent, String reference, Instant now) {
+        sentAt = sent.truncatedTo(ChronoUnit.MICROS);
+        sentBy = userId;
+        enisaReference = reference;
+        updatedAt = now.truncatedTo(ChronoUnit.MICROS);
+    }
+
+    // Deja el reporte como borrador sin aprobar y actualiza la fecha de cambio.
+    private void unapprove(Instant now) {
+        draftStatus = DraftStatus.DRAFTED;
+        approvedBy = null;
+        approvedAt = null;
+        updatedAt = now.truncatedTo(ChronoUnit.MICROS);
+    }
+
     // Calcula el estado del plazo del reporte en ese instante.
     public DeadlineStatus statusAt(Instant now) {
         return Deadlines.status(event.getConfirmedAt(), dueAt, sentAt, now);

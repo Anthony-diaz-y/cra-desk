@@ -94,6 +94,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    // Responde 429 en formato problem details cuando se agotó un límite de uso.
+    @ExceptionHandler(TooManyRequestsException.class)
+    ProblemDetail tooManyRequests(TooManyRequestsException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS, e.getMessage());
+        problem.setTitle("Too many requests");
+        return problem;
+    }
+
     // Responde 409 en formato problem details.
     @ExceptionHandler(ConflictException.class)
     ProblemDetail conflict(ConflictException e) {

@@ -8,7 +8,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -24,6 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 
 import io.cradesk.api.catalog.ProductService;
+import io.cradesk.api.common.FileNames;
 import io.cradesk.api.catalog.ProductVersion;
 import io.cradesk.api.identity.AccessRole;
 import io.cradesk.api.identity.CurrentTenant;
@@ -165,8 +165,7 @@ public class SbomService {
 
     // Deja en el nombre solo letras minúsculas, números, punto, guion y guion bajo.
     static String safeFileName(String raw) {
-        String cleaned = raw.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9._-]+", "-").replaceAll("-{2,}", "-");
-        return cleaned.replaceAll("^[-.]+|-+$", "");
+        return FileNames.safe(raw, "sbom");
     }
 
     // Rechaza con 415 cualquier tipo de contenido que no sea JSON de CycloneDX.

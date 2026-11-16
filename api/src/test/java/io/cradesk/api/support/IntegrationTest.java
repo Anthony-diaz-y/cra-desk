@@ -14,6 +14,6 @@ import org.springframework.context.annotation.Import;
 @SpringBootTest(properties = { "cradesk.admin.token=" + TestTenants.ADMIN_TOKEN,
         "cradesk.scan.scheduler-enabled=false" })
 @AutoConfigureMockMvc
-@Import({ TestcontainersConfiguration.class, TestTenants.class, FakeExternalFeeds.class })
+@Import({ TestcontainersConfiguration.class, TestTenants.class, FakeExternalFeeds.class, FakeAi.class })
 public @interface IntegrationTest {
 }
