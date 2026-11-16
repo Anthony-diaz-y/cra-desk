@@ -26,8 +26,9 @@ Compliance desk for the **EU Cyber Resilience Act** (Regulation (EU) 2024/2847),
 | 1 | Product catalog API (products + versions), validation, RFC 9457 errors | ✅ |
 | 2 | Identity & security: session login, invitations, read-only demo, API keys, per-organization isolation, waitlist | ✅ |
 | 3 | SBOM ingest: CycloneDX JSON 1.4–1.6 per product version, validation, size limits, components by purl | ✅ |
-| 4 | Vulnerability monitoring: OSV matching, CISA KEV catalog, findings to review, scan queue and daily rescan | ✅ 159 tests |
-| 5–9 | Go CLI, reporting + audit, web, DevOps, polish | planned |
+| 4 | Vulnerability monitoring: OSV matching, CISA KEV catalog, findings to review, scan queue and daily rescan | ✅ |
+| 5 | `cradesk` Go CLI (login, upload, wait, fail on KEV) and GitHub Action | ✅ 175 API tests + Go tests |
+| 6–9 | Reporting + audit, web, DevOps, polish | planned |
 
 ## Local development
 
@@ -59,7 +60,7 @@ With the API running, from the repo root:
 set -a && . ./.env && set +a && bash scripts/demo.sh
 ```
 
-It opens the read-only demo (writes are 403), invites a manufacturer with the admin token, accepts the invitation, registers a product and a firmware version, creates an API key, uploads a CycloneDX SBOM with it as a CI pipeline would, reads the SBOM summary and components, waits for the vulnerability scan against the real OSV and CISA KEV services and shows the findings (Log4Shell is in KEV), shows an SPDX file being rejected (400), revokes the key (401) and sends a "Request access" form (202).
+It opens the read-only demo (writes are 403), invites a manufacturer with the admin token, accepts the invitation, registers a product and a firmware version, creates an API key, uploads a CycloneDX SBOM with the `cradesk` CLI as a CI pipeline would and waits for the vulnerability scan against the real OSV and CISA KEV services, shows the CI gate failing with exit code 3 because Log4Shell is in KEV, reads the SBOM, vulnerabilities and findings, shows an SPDX file being rejected (400), revokes the key (401) and sends a "Request access" form (202).
 
 ## SBOM ingest
 
@@ -82,6 +83,44 @@ curl -X PUT "$API/api/products/$PRODUCT/versions/$VERSION/sbom" \
 - The [CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) catalog is refreshed daily and replaced atomically; a failed download keeps the previous one.
 - A vulnerability in KEV (by its id or any CVE alias) creates a **finding to review** — it does not open a reportable event or start the CRA clocks; a person does that (stage 6). Findings are never deleted: one that disappears after an SBOM fix is marked absent.
 - If OSV or KEV fail, the scan is `FAILED` with the reason and nothing is half-written.
+
+## CLI and GitHub Action
+
+`cradesk` is a single static binary (Go, standard library only) for CI pipelines.
+
+```bash
+cd cli && go build -o cradesk ./cmd/cradesk        # or: VERSION=0.1.0 bash scripts/build-cli.sh (all platforms)
+
+echo "$CRADESK_API_KEY" | cradesk login --api-url https://cradesk.example.com
+cradesk upload --product "Smart Lock" --version 1.4.0 --file bom.json --fail-on-kev
+```
+
+- In CI, skip `login` and set `CRADESK_API_URL` and `CRADESK_API_KEY`; they override the saved login.
+- The key is read from stdin, never from a flag, and saved with `0600` permissions.
+- `upload` creates the version if it does not exist (`--no-create-version` to forbid it); `--wait` waits for the OSV + KEV scan and prints a KEV-first table; `--fail-on-kev` implies `--wait`.
+
+| Exit code | Meaning |
+|---|---|
+| 0 | OK |
+| 1 | Usage or input error (flags, missing file, no login) |
+| 2 | API or network error (message from the API's problem details) |
+| 3 | Actively exploited (CISA KEV) vulnerability found and `--fail-on-kev` set |
+| 4 | Scan failed or did not finish within `--timeout` |
+
+GitHub Action, after generating the SBOM (for example with `anchore/sbom-action`):
+
+```yaml
+- uses: Anthony-diaz-y/cra-desk/cli@main
+  with:
+    api-url: https://cradesk.example.com
+    api-key: ${{ secrets.CRADESK_API_KEY }}
+    product: Smart Lock
+    version: ${{ github.ref_name }}
+    file: bom.json
+    fail-on-kev: "true"
+```
+
+Prebuilt binaries for Linux, macOS and Windows (amd64/arm64) are attached to GitHub releases tagged `cli-v*`.
 
 ## Security model
 
@@ -124,6 +163,7 @@ All errors are RFC 9457 problem details. "Session" means a signed-in member; "ke
 | `GET` | `/api/products/{id}/versions/{versionId}/vulnerabilities` | session, demo, key | 200 scan status + vulnerabilities, KEV first · 404 without SBOM |
 | `POST` | `/api/products/{id}/versions/{versionId}/scan` | session, key | 202 rescan queued · 404 without SBOM |
 | `GET` | `/api/findings` | session, demo, key | 200 the organization's findings pending review |
+| `PUT` | `/api/sbom?product=&version=&createVersion=true` | session, key | upload by product and version **name** (CLI): 201 · 200 · 400 · 404 unknown product · 413 · 415 |
 
 ## License
 

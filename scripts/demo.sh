@@ -86,23 +86,23 @@ call POST /api/api-keys '{"name":"CI pipeline"}'
 KEY=$(field key)
 KEY_ID=$(field id)
 
-step "10. The CI pipeline uploads the CycloneDX SBOM with the key → 201"
-call_with_key "$KEY" PUT "/api/products/$PRODUCT/versions/$VERSION/sbom" "$HERE/sample-sbom.cdx.json"
+step "10. The CI pipeline uploads the SBOM with the Go CLI and waits for the vulnerability scan → exit 0"
+CLI="$HERE/../cli/dist/cradesk-local$(go env GOEXE 2>/dev/null)"
+if [ ! -x "$CLI" ]; then (cd "$HERE/../cli" && go build -o "$CLI" ./cmd/cradesk); fi
+printf '\033[2mcradesk upload --product "Smart Lock" --version 1.0.0 --file sample-sbom.cdx.json --wait\033[0m\n'
+CRADESK_API_URL="$API" CRADESK_API_KEY="$KEY" "$CLI" upload --product "Smart Lock" --version 1.0.0 \
+  --file "$HERE/sample-sbom.cdx.json" --wait --timeout 3m
+printf '← exit %s\n' "$?"
 
 step "11. SBOM summary → 200 and the first page of components → 200"
 call GET "/api/products/$PRODUCT/versions/$VERSION/sbom"
 call GET "/api/products/$PRODUCT/versions/$VERSION/sbom/components?size=3"
 
-step "12. The upload queued a vulnerability scan (OSV + CISA KEV); ask again → 202 and wait until it is DONE"
-call POST "/api/products/$PRODUCT/versions/$VERSION/scan"
-for i in $(seq 1 30); do
-  curl -s -o "$LAST" -b "$JAR" "$API/api/products/$PRODUCT/versions/$VERSION/vulnerabilities"
-  STATUS=$(field status)
-  printf '  scan status: %s
-' "${STATUS:-none}"
-  [ "$STATUS" = "DONE" ] || [ "$STATUS" = "FAILED" ] && break
-  sleep 3
-done
+step "12. CI gate: the same upload with --fail-on-kev stops the build (Log4Shell is in CISA KEV) → exit 3"
+printf '\033[2mcradesk upload --product "Smart Lock" --version 1.0.0 --file sample-sbom.cdx.json --fail-on-kev\033[0m\n'
+CRADESK_API_URL="$API" CRADESK_API_KEY="$KEY" "$CLI" upload --product "Smart Lock" --version 1.0.0 \
+  --file "$HERE/sample-sbom.cdx.json" --fail-on-kev --timeout 3m > /dev/null
+printf '← exit %s\n' "$?"
 
 step "13. Vulnerabilities of the version, KEV first → 200"
 call GET "/api/products/$PRODUCT/versions/$VERSION/vulnerabilities"
