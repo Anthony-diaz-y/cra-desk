@@ -23,15 +23,17 @@ public class ScanScheduler {
     private final ScanQueue queue;
     private final KevCatalogService kev;
     private final SbomRepository sboms;
+    private final VersionScanRepository scans;
 
-    // Recibe la configuración, el escáner, la cola, el catálogo KEV y el repositorio de SBOM.
+    // Recibe la configuración, el escáner, la cola, el catálogo KEV y los repositorios de SBOM y escaneos.
     public ScanScheduler(ScanProperties properties, VersionScanner scanner, ScanQueue queue, KevCatalogService kev,
-            SbomRepository sboms) {
+            SbomRepository sboms, VersionScanRepository scans) {
         this.properties = properties;
         this.scanner = scanner;
         this.queue = queue;
         this.kev = kev;
         this.sboms = sboms;
+        this.scans = scans;
     }
 
     // Cada pocos segundos procesa la cola de escaneos, si el planificador está activado.
@@ -50,11 +52,24 @@ public class ScanScheduler {
         }
     }
 
-    // Al arrancar descarga el catálogo KEV si nunca se descargó, sin impedir el arranque si falla.
+    // Al arrancar descarga KEV si nunca se descargó y encola las versiones con SBOM que nunca se escanearon.
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
-        if (properties.schedulerEnabled() && kev.isEmpty()) {
+        if (!properties.schedulerEnabled()) {
+            return;
+        }
+        if (kev.isEmpty()) {
             refreshKev();
+        }
+        queueNeverScanned();
+    }
+
+    // Encola el escaneo de las versiones que tienen SBOM pero ningún escaneo registrado.
+    public void queueNeverScanned() {
+        for (UUID versionId : sboms.findAllProductVersionIds()) {
+            if (!scans.existsById(versionId)) {
+                queue.request(versionId);
+            }
         }
     }
 

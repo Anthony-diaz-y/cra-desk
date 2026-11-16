@@ -106,6 +106,19 @@ class ScanSchedulerIT {
         assertThat(scanStatus(otherWithSbom)).isEqualTo("DONE");
     }
 
+    // Comprueba que al arrancar se encolan las versiones con SBOM que nunca se escanearon, sin tocar las demás.
+    @Test
+    void startupQueuesVersionsNeverScanned() {
+        jdbc.update("DELETE FROM version_scans WHERE product_version_id = ?", UUID.fromString(withSbom));
+        jdbc.update("UPDATE version_scans SET status = 'DONE' WHERE product_version_id = ?",
+                UUID.fromString(otherWithSbom));
+
+        scheduler.queueNeverScanned();
+
+        assertThat(scanStatus(withSbom)).isEqualTo("PENDING");
+        assertThat(scanStatus(otherWithSbom)).isEqualTo("DONE");
+    }
+
     // Comprueba que con el planificador desactivado (como en los tests) la tarea programada no escanea nada.
     @Test
     void disabledSchedulerDoesNothing() {
