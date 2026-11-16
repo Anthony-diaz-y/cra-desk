@@ -123,6 +123,9 @@ func upload(env Env, args []string) int {
 	if flags.Parse(args) != nil {
 		return ExitUsage
 	}
+	if flags.NArg() > 0 {
+		return fail(env, ExitUsage, fmt.Errorf("unexpected argument %q (use --file to choose the SBOM)", flags.Arg(0)))
+	}
 	if strings.TrimSpace(*product) == "" || strings.TrimSpace(*version) == "" {
 		return fail(env, ExitUsage, errors.New("--product and --version are required"))
 	}

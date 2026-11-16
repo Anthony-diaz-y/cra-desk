@@ -160,6 +160,27 @@ func TestUnreachableServer(t *testing.T) {
 	}
 }
 
+// TestRedirectIsNotFollowedAndKeyIsNotForwarded comprueba que una redirección no se sigue y explica qué URL usar.
+func TestRedirectIsNotFollowedAndKeyIsNotForwarded(t *testing.T) {
+	var forwarded bool
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		forwarded = true
+	}))
+	t.Cleanup(target.Close)
+	_, client := newServer(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+r.URL.Path, http.StatusMovedPermanently)
+	})
+
+	_, _, err := client.UploadSBOM(context.Background(), "Smart Lock", "1.0.0", true, strings.NewReader("{}"))
+
+	if forwarded {
+		t.Fatal("the redirect was followed and the request reached the other server")
+	}
+	if err == nil || !strings.Contains(err.Error(), "CRA Desk redirected to "+target.URL+"/api/sbom") {
+		t.Fatalf("unexpected error %v", err)
+	}
+}
+
 // TestErrorsNeverContainTheKey comprueba que ningún mensaje de error incluye la clave de API.
 func TestErrorsNeverContainTheKey(t *testing.T) {
 	_, client := newServer(t, func(w http.ResponseWriter, r *http.Request) {

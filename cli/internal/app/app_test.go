@@ -204,6 +204,17 @@ func TestUploadRequiresProductAndVersion(t *testing.T) {
 	}
 }
 
+// TestUploadRejectsPositionalArguments comprueba que un archivo pasado sin --file se rechaza en vez de subir bom.json.
+func TestUploadRejectsPositionalArguments(t *testing.T) {
+	url, bom, configPath := setup(t, &fakeAPI{})
+
+	r := run(t, configPath, "", ciEnv(url), "upload", "--product", "Smart Lock", "--version", "1.0.0", bom)
+
+	if r.code != ExitUsage || !strings.Contains(r.stderr, "unexpected argument") || !strings.Contains(r.stderr, "--file") {
+		t.Fatalf("exit %d, stderr %q", r.code, r.stderr)
+	}
+}
+
 // TestUploadAPIErrorExits2WithFieldErrors comprueba que un SBOM rechazado da código 2 y muestra los errores por campo.
 func TestUploadAPIErrorExits2WithFieldErrors(t *testing.T) {
 	url, bom, configPath := setup(t, &fakeAPI{})

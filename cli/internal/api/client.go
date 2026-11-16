@@ -86,8 +86,9 @@ func New(baseURL, apiKey, userAgent string) *Client {
 		apiKey:    apiKey,
 		userAgent: userAgent,
 		http: &http.Client{
-			Timeout:   requestTimeout,
-			Transport: &http.Transport{Proxy: http.ProxyFromEnvironment},
+			Timeout:       requestTimeout,
+			Transport:     &http.Transport{Proxy: http.ProxyFromEnvironment},
+			CheckRedirect: doNotFollow,
 		},
 	}
 }
@@ -143,6 +144,10 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader, co
 	if err != nil {
 		return resp.StatusCode, fmt.Errorf("cannot read the response from CRA Desk: %v", err)
 	}
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return resp.StatusCode, fmt.Errorf("CRA Desk redirected to %s; use that address as the API URL",
+			resp.Header.Get("Location"))
+	}
 	if resp.StatusCode >= 400 {
 		return resp.StatusCode, toAPIError(resp, data)
 	}
@@ -152,6 +157,11 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader, co
 		}
 	}
 	return resp.StatusCode, nil
+}
+
+// doNotFollow evita seguir redirecciones, para no reenviar la clave ni convertir un PUT en GET.
+func doNotFollow(*http.Request, []*http.Request) error {
+	return http.ErrUseLastResponse
 }
 
 // toAPIError lee un problem details o, si el cuerpo no lo es, usa el texto del estado HTTP.

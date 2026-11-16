@@ -24,7 +24,7 @@ func DefaultPath() (string, error) {
 	return filepath.Join(dir, "cradesk", "config.json"), nil
 }
 
-// Load lee el archivo si existe y aplica encima las variables CRADESK_API_URL y CRADESK_API_KEY.
+// Load lee el archivo y aplica las variables de entorno; la clave guardada solo se usa con la URL guardada.
 func Load(path string, getenv func(string) string) (Config, error) {
 	var c Config
 	data, err := os.ReadFile(path)
@@ -37,15 +37,23 @@ func Load(path string, getenv func(string) string) (Config, error) {
 	default:
 		return Config{}, fmt.Errorf("cannot read config file %s: %w", path, err)
 	}
+	fileURL := normalizeURL(c.APIURL)
 	if v := getenv("CRADESK_API_URL"); v != "" {
 		c.APIURL = v
 	}
 	if v := getenv("CRADESK_API_KEY"); v != "" {
 		c.APIKey = v
+	} else if normalizeURL(c.APIURL) != fileURL {
+		c.APIKey = ""
 	}
-	c.APIURL = strings.TrimRight(strings.TrimSpace(c.APIURL), "/")
+	c.APIURL = normalizeURL(c.APIURL)
 	c.APIKey = strings.TrimSpace(c.APIKey)
 	return c, nil
+}
+
+// normalizeURL quita espacios y la barra final para comparar y guardar la URL siempre igual.
+func normalizeURL(raw string) string {
+	return strings.TrimRight(strings.TrimSpace(raw), "/")
 }
 
 // Save escribe la configuración con permisos 0600 en una carpeta 0700, porque contiene la clave de API.

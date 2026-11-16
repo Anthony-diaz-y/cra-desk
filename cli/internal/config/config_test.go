@@ -104,6 +104,40 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+// TestSavedKeyIsNotSentToAnotherURL comprueba que la clave guardada no se usa si la URL del entorno apunta a otro servidor.
+func TestSavedKeyIsNotSentToAnotherURL(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := Save(path, Config{APIURL: "https://prod.example", APIKey: "crd_prodkey"}); err != nil {
+		t.Fatal(err)
+	}
+
+	other, err := Load(path, func(k string) string {
+		if k == "CRADESK_API_URL" {
+			return "https://staging.example"
+		}
+		return ""
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	same, err := Load(path, func(k string) string {
+		if k == "CRADESK_API_URL" {
+			return "https://prod.example/"
+		}
+		return ""
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if other.APIKey != "" {
+		t.Fatalf("saved key for prod would be sent to staging: %+v", other)
+	}
+	if same.APIKey != "crd_prodkey" {
+		t.Fatalf("saved key should be used for the same URL: %+v", same)
+	}
+}
+
 // TestTrailingSlashIsRemoved comprueba que la barra final de la URL se quita al leer.
 func TestTrailingSlashIsRemoved(t *testing.T) {
 	c, err := Load(filepath.Join(t.TempDir(), "none.json"), func(k string) string {
