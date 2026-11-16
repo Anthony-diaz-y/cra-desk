@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Settings" };
 export default function SettingsPage() {
   return (
     <>
-      <PageHeader title="Settings" />
+      <PageHeader title="Settings" description="Manage the keys that let your CI pipeline upload SBOMs and trigger vulnerability scans." />
       <ApiKeys />
     </>
   );
