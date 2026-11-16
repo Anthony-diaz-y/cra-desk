@@ -95,9 +95,11 @@ public class Report {
         unapprove(now);
     }
 
-    // Reemplaza el contenido por el que editó una persona y quita la aprobación.
+    // Reemplaza el contenido por el que editó una persona, lo marca MANUAL y quita la aprobación.
     public void edit(String contentJson, Instant now) {
         content = contentJson;
+        generatedBy = "MANUAL";
+        aiError = null;
         unapprove(now);
     }
 

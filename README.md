@@ -28,7 +28,7 @@ Compliance desk for the **EU Cyber Resilience Act** (Regulation (EU) 2024/2847),
 | 3 | SBOM ingest: CycloneDX JSON 1.4–1.6 per product version, validation, size limits, components by purl | ✅ |
 | 4 | Vulnerability monitoring: OSV matching, CISA KEV catalog, findings to review, scan queue and daily rescan | ✅ |
 | 5 | `cradesk` Go CLI (login, upload, wait, fail on KEV) and GitHub Action | ✅ 175 API tests + Go tests |
-| 6 | Reporting: finding review, CRA 24 h / 72 h / 14 d clocks, AI or template drafts, approval, sent to ENISA, JSON/Markdown export; hash-chained audit log | ✅ 238 API tests |
+| 6 | Reporting: finding review, CRA 24 h / 72 h / 14 d clocks, AI or template drafts, approval, sent to ENISA, JSON/Markdown export; hash-chained audit log | ✅ 244 API tests |
 | 7–9 | Web, DevOps, polish | planned |
 
 ## Local development

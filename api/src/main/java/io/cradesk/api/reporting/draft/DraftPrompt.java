@@ -48,10 +48,15 @@ public final class DraftPrompt {
                 affected components: %s
                 exploitation confirmed by the manufacturer at: %s
                 </product_data>
-                """.formatted(c.organizationName(), c.productName(), c.productClass(), c.version(), c.cveId(),
-                c.vulnerabilityId(), orUnknown(c.summary()), orUnknown(c.severity()), c.kevDateAdded(),
-                orUnknown(c.kevVendorProject()), orUnknown(c.kevProduct()),
-                String.join("; ", c.affectedComponents()), c.confirmedAt());
+                """.formatted(data(c.organizationName()), data(c.productName()), data(c.productClass()),
+                data(c.version()), data(c.cveId()), data(c.vulnerabilityId()), data(orUnknown(c.summary())),
+                data(orUnknown(c.severity())), c.kevDateAdded(), data(orUnknown(c.kevVendorProject())),
+                data(orUnknown(c.kevProduct())), data(String.join("; ", c.affectedComponents())), c.confirmedAt());
+    }
+
+    // Quita los signos < y > de un dato del cliente para que no pueda abrir ni cerrar el bloque de datos.
+    private static String data(String value) {
+        return value == null ? null : value.replace("<", "").replace(">", "");
     }
 
     // Devuelve el texto o "unknown" si falta.

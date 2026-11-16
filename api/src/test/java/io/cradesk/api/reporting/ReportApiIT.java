@@ -137,6 +137,41 @@ class ReportApiIT {
         assertThat(usedToday()).isEqualTo(1);
     }
 
+    // Comprueba que un fallo de la IA devuelve la unidad del cupo, porque no se produjo ningún borrador con IA.
+    @Test
+    void aiFailureDoesNotConsumeQuota() throws Exception {
+        ai.willFail("AI provider: HTTP 401");
+
+        acme.perform(post(early + "/draft")).andExpect(status().isOk());
+
+        assertThat(usedToday()).isZero();
+    }
+
+    // Comprueba que un error inesperado del proveedor también cae en la plantilla, sin 500 y sin gastar cupo.
+    @Test
+    void unexpectedAiErrorFallsBackToTemplate() throws Exception {
+        ai.willCrash();
+
+        acme.perform(post(early + "/draft"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.generatedBy").value("TEMPLATE"))
+                .andExpect(jsonPath("$.aiError").value("AI provider: internal error"));
+
+        assertThat(usedToday()).isZero();
+    }
+
+    // Comprueba que el texto editado por una persona queda como MANUAL y sin el error de la IA.
+    @Test
+    void editMarksTheDraftAsManual() throws Exception {
+        ai.willFail("AI provider: HTTP 401");
+        acme.perform(post(early + "/draft")).andExpect(jsonPath("$.aiError").exists());
+
+        acme.perform(put(early).contentType(MediaType.APPLICATION_JSON).content(validContent()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.generatedBy").value("MANUAL"))
+                .andExpect(jsonPath("$.aiError").doesNotExist());
+    }
+
     // Comprueba que si la IA falla se entrega el borrador de la plantilla con el motivo, no un error.
     @Test
     void aiFailureFallsBackToTemplateWithReason() throws Exception {

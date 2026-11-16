@@ -2,6 +2,7 @@ package io.cradesk.api.reporting;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -100,7 +101,8 @@ public class ReportService {
         DraftContent content = null;
         String aiError = null;
         if (useAi && generators.ai().isPresent()) {
-            if (!quota.tryConsume(principal.organizationId(), generators.dailyLimit())) {
+            LocalDate day = quota.today();
+            if (!quota.tryConsume(principal.organizationId(), generators.dailyLimit(), day)) {
                 throw new DailyAiLimitException(generators.dailyLimit());
             }
             try {
@@ -109,6 +111,12 @@ public class ReportService {
             } catch (DraftGenerationException e) {
                 log.warn("AI draft failed for event {} {}: {}", eventId, type, e.getMessage());
                 aiError = cut(e.getMessage());
+            } catch (RuntimeException e) {
+                log.error("AI draft failed unexpectedly for event {} {}", eventId, type, e);
+                aiError = "AI provider: internal error";
+            }
+            if (content == null) {
+                quota.refund(principal.organizationId(), day);
             }
         }
         if (content == null) {

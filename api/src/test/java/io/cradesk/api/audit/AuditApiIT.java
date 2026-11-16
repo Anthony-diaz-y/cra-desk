@@ -244,6 +244,32 @@ class AuditApiIT {
                 .andExpect(jsonPath("$.entries").value(12));
     }
 
+    // Comprueba que verificar mientras otra persona registra acciones nunca da una falsa alarma de alteración.
+    @Test
+    void verifyDuringConcurrentWritesStaysValid() throws Exception {
+        java.util.concurrent.atomic.AtomicBoolean writing = new java.util.concurrent.atomic.AtomicBoolean(true);
+        Thread writer = new Thread(() -> {
+            try {
+                for (int i = 0; i < 60; i++) {
+                    acme.perform(post("/api/api-keys").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"name\":\"w-" + i + "\"}"));
+                }
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            } finally {
+                writing.set(false);
+            }
+        });
+        writer.start();
+        List<String> results = new ArrayList<>();
+        while (writing.get()) {
+            results.add(acme.perform(get("/api/audit/verify")).andReturn().getResponse().getContentAsString());
+        }
+        writer.join(60_000);
+
+        assertThat(results).isNotEmpty().allSatisfy(r -> assertThat(r).contains("\"valid\":true"));
+    }
+
     // Comprueba que cada empresa tiene su propia cadena y solo ve sus entradas.
     @Test
     void eachOrganizationHasItsOwnChain() throws Exception {

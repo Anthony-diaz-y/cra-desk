@@ -77,6 +77,31 @@ class ClaudeDraftGeneratorTest {
         assertThat(e).hasMessageStartingWith("AI provider:");
     }
 
+    // Comprueba que el cliente de producción no reintenta: un 500 de la API es una sola petición y un fallo inmediato.
+    @Test
+    void productionClientDoesNotRetry() throws IOException {
+        java.util.concurrent.atomic.AtomicInteger requests = new java.util.concurrent.atomic.AtomicInteger();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            requests.incrementAndGet();
+            byte[] body = "{\"type\":\"error\",\"error\":{\"type\":\"api_error\",\"message\":\"boom\"}}"
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(500, body.length);
+            try (OutputStream out = exchange.getResponseBody()) {
+                out.write(body);
+            }
+        });
+        server.start();
+        ClaudeDraftGenerator generator = new ClaudeDraftGenerator(DraftGeneratorConfig.claudeClient("test-key",
+                "http://127.0.0.1:" + server.getAddress().getPort()), "claude-haiku-5-5", json);
+
+        catchThrowableOfType(DraftGenerationException.class,
+                () -> generator.generate(ReportType.EARLY_WARNING, DraftTestData.context("log4j-core")));
+
+        assertThat(requests.get()).isEqualTo(1);
+    }
+
     // Arranca una API falsa que guarda la petición y responde siempre ese mensaje.
     private ClaudeDraftGenerator generatorAnswering(String response) throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);

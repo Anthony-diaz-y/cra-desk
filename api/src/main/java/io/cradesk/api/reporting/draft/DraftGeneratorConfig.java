@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
+import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -43,9 +44,8 @@ public class DraftGeneratorConfig {
             case "claude" -> {
                 if (!blank(p.anthropicApiKey())) {
                     String model = blank(p.model()) ? DEFAULT_CLAUDE_MODEL : p.model();
-                    return new DraftGenerators(Optional.of(new ClaudeDraftGenerator(AnthropicOkHttpClient.builder()
-                            .apiKey(p.anthropicApiKey()).timeout(TIMEOUT).build(), model, json)), template, model,
-                            p.dailyLimit());
+                    return new DraftGenerators(Optional.of(new ClaudeDraftGenerator(
+                            claudeClient(p.anthropicApiKey(), null), model, json)), template, model, p.dailyLimit());
                 }
                 log.warn("CRADESK_AI_PROVIDER=claude but ANTHROPIC_API_KEY is not set; using the template");
             }
@@ -63,6 +63,16 @@ public class DraftGeneratorConfig {
             default -> log.warn("Unknown CRADESK_AI_PROVIDER '{}'; using the template", provider);
         }
         return new DraftGenerators(Optional.empty(), template, "", p.dailyLimit());
+    }
+
+    // Crea el cliente del SDK de Anthropic con el timeout del proveedor y sin reintentos, apuntando a otra URL si se indica.
+    static AnthropicClient claudeClient(String apiKey, String baseUrl) {
+        AnthropicOkHttpClient.Builder builder = AnthropicOkHttpClient.builder().apiKey(apiKey).timeout(TIMEOUT)
+                .maxRetries(0);
+        if (baseUrl != null) {
+            builder.baseUrl(baseUrl);
+        }
+        return builder.build();
     }
 
     // Crea un RestClient para el proveedor con timeouts de 5 s para conectar y 60 s para leer.

@@ -16,6 +16,7 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -105,8 +106,8 @@ public class AuditService {
         return new AuditPage(items, page, size, result.getTotalElements(), result.getTotalPages());
     }
 
-    // Recorre la cadena de la empresa actual y comprueba orden, enlaces, hashes y la cabeza.
-    @Transactional(readOnly = true)
+    // Recorre la cadena de la empresa actual sobre una sola foto de la base y comprueba orden, enlaces, hashes y la cabeza.
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public AuditVerification verify() {
         UUID organizationId = tenant.organizationId();
         long lastSeq = 0;

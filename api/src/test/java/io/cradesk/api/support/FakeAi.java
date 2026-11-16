@@ -38,10 +38,16 @@ public class FakeAi {
         private final TemplateDraftGenerator template = new TemplateDraftGenerator();
         private final AtomicInteger calls = new AtomicInteger();
         private volatile String failure;
+        private volatile boolean crash;
 
         // Programa que la próxima generación falle con ese motivo.
         public void willFail(String reason) {
             failure = reason;
+        }
+
+        // Programa que la próxima generación falle con un error inesperado, no con DraftGenerationException.
+        public void willCrash() {
+            crash = true;
         }
 
         // Devuelve cuántas veces se pidió un borrador a la IA.
@@ -52,6 +58,7 @@ public class FakeAi {
         // Vuelve al comportamiento normal y pone el contador en cero.
         public void reset() {
             failure = null;
+            crash = false;
             calls.set(0);
         }
 
@@ -65,6 +72,9 @@ public class FakeAi {
         @Override
         public DraftContent generate(ReportType type, DraftContext context) {
             calls.incrementAndGet();
+            if (crash) {
+                throw new IllegalStateException("bug in the provider client");
+            }
             if (failure != null) {
                 throw new DraftGenerationException(failure);
             }
