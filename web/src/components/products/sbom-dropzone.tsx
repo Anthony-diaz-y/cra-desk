@@ -71,20 +71,33 @@ export function SbomDropzone({ productId, versionId }: { productId: string; vers
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors",
-          dragging ? "border-brand bg-brand/5" : "border-border hover:border-brand/50 hover:bg-muted/40",
+          "group relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-all duration-200",
+          dragging ? "border-brand bg-brand/[0.06] shadow-sm" : "border-border/80 bg-card/40 hover:border-brand/45 hover:bg-brand/[0.02]",
           isDemo && "pointer-events-none opacity-60",
         )}
       >
-        {uploading ? <Loader2 className="size-7 animate-spin text-brand" /> : <UploadCloud className="size-7 text-brand" />}
-        <span className="font-medium">{uploading ? "Uploading…" : "Drop a CycloneDX JSON SBOM here, or click to choose"}</span>
-        <span className="text-sm text-muted-foreground">{isDemo ? "Uploads are disabled in the demo." : "Up to 5 MB. Replaces the current SBOM of this version."}</span>
+        <div className="pointer-events-none absolute inset-0 bg-dots opacity-25 [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" aria-hidden="true" />
+        <div className="relative">
+          <span className={cn("mx-auto grid size-12 place-items-center rounded-2xl border transition-colors", dragging ? "border-brand/30 bg-brand/10 text-brand" : "border-border/70 bg-background/70 text-brand shadow-sm")}>
+            {uploading ? <Loader2 className="size-5 animate-spin" /> : <UploadCloud className="size-5" />}
+          </span>
+          <p className="mt-4 font-medium">{uploading ? "Uploading…" : "Drop a CycloneDX JSON SBOM here"}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isDemo ? "Uploads are disabled in the demo." : <>or <span className="font-medium text-foreground underline decoration-brand/40 underline-offset-4">browse your files</span></>}
+          </p>
+          <p className="mt-3 text-xs text-muted-foreground">Up to 5 MB. Replaces the current SBOM of this version.</p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+            {["CycloneDX 1.4", "1.5", "1.6"].map((tag) => (
+              <span key={tag} className="rounded-full border border-border/60 bg-background/60 px-2 py-0.5 text-[10px] text-muted-foreground">{tag}</span>
+            ))}
+          </div>
+        </div>
         <input id={`sbom-${versionId}`} ref={input} type="file" accept=".json,application/json,application/vnd.cyclonedx+json"
           aria-label="SBOM file" className="sr-only" disabled={isDemo || uploading}
           onChange={(e) => { const file = e.target.files?.[0]; if (file) { void upload(file); } }} />
       </label>
       {error && (
-        <div role="alert" className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+        <div role="alert" className="mt-3 rounded-xl border border-danger/25 bg-danger/[0.07] px-3.5 py-2.5 text-sm text-danger">
           <p className="flex items-center gap-2 font-medium"><FileJson className="size-4" />{error.message}</p>
           {Object.keys(error.fields).length > 0 && (
             <ul className="mt-1 list-inside list-disc">

@@ -26,27 +26,34 @@ export function ProductDetail({ productId }: { productId: string }) {
   return (
     <>
       <PageHeader
-        eyebrow={<Link href="/app/products" className="inline-flex items-center gap-1 hover:text-foreground"><ArrowLeft className="size-3.5" /> Products</Link>}
+        eyebrow={<Link href="/app/products" className="inline-flex items-center gap-1 transition-colors hover:text-foreground"><ArrowLeft className="size-3.5" /> Products</Link>}
         title={p.name}
         description={p.description ?? undefined}
-        actions={<><span className="rounded-full bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand">{productClassLabel(p.productClass)}</span><ProductDialog product={p} /><DeleteProductButton product={p} /></>}
+        actions={<><span className="rounded-full border border-brand/20 bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand">{productClassLabel(p.productClass)}</span><ProductDialog product={p} /><DeleteProductButton product={p} /></>}
       />
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-medium">Versions</h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-lg font-medium tracking-tight">
+          Versions
+          {versions.data && <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground tabular">{versions.data.length}</span>}
+        </h2>
         <VersionDialog productId={productId} />
       </div>
       {versions.error ? <LoadError error={versions.error} /> : !versions.data ? <Skeleton className="h-24 rounded-2xl" /> : versions.data.length === 0 ? (
-        <EmptyState icon={<GitBranch className="size-5" />} title="No versions yet" text="Create the version you ship, then upload its SBOM to start monitoring it." />
+        <EmptyState icon={<GitBranch className="size-5" />} title="No versions yet" text="Create the version you ship, then upload its SBOM to start monitoring it." action={<VersionDialog productId={productId} />} />
       ) : (
-        <ul className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/70 bg-card">
+        <ul className="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
           {versions.data.map((v) => (
             <li key={v.id}>
-              <Link href={`/app/products/${productId}/versions/${v.id}`} className="group flex items-center justify-between px-5 py-4 hover:bg-muted/40">
-                <div>
+              <Link href={`/app/products/${productId}/versions/${v.id}`} className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/30">
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl border border-border/60 bg-muted/40 text-muted-foreground transition-colors group-hover:border-brand/20 group-hover:bg-brand/[0.06] group-hover:text-brand">
+                  <GitBranch className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
                   <p className="font-mono font-medium">{v.version}</p>
                   <p className="text-xs text-muted-foreground">Released {date(v.releasedAt)}</p>
                 </div>
-                <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                <span className="hidden text-xs text-muted-foreground transition-colors group-hover:text-foreground sm:inline">View SBOM</span>
+                <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
               </Link>
             </li>
           ))}
