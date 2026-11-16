@@ -10,7 +10,7 @@ export function Field({ id, label, error, hint, ...input }: FieldProps) {
   return (
     <div className="grid gap-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} aria-invalid={!!error} aria-describedby={describedBy} className="h-10" {...input} />
+      <Input id={id} aria-invalid={!!error} aria-describedby={describedBy} className="h-10 bg-background/60 transition-shadow" {...input} />
       {error ? (
         <p id={`${id}-error`} className="text-sm text-danger">{error}</p>
       ) : hint ? (
