@@ -9,6 +9,7 @@ const eslintConfig = defineConfig([
     ".next/**",
     ".next-e2e/**",
     "test-results/**",
+    ".playwright-mcp/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
