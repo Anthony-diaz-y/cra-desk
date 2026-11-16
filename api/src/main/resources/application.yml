@@ -36,6 +36,13 @@ cradesk:
     enabled: ${CRADESK_DEMO_ENABLED:true}
   sbom:
     max-bytes: ${CRADESK_SBOM_MAX_BYTES:5242880}
+  ai:
+    provider: ${CRADESK_AI_PROVIDER:template}
+    base-url: ${CRADESK_AI_BASE_URL:https://api.deepseek.com}
+    model: ${CRADESK_AI_MODEL:}
+    api-key: ${CRADESK_AI_API_KEY:}
+    anthropic-api-key: ${ANTHROPIC_API_KEY:}
+    daily-limit: ${CRADESK_AI_DAILY_LIMIT:20}
   osv:
     base-url: ${CRADESK_OSV_BASE_URL:https://api.osv.dev}
   scan:
