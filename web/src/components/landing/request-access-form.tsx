@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowRight, Building2, CheckCircle2, Loader2, Mail } from "lucide-react";
 import { ApiError, apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 type Errors = Record<string, string>;
 
@@ -40,9 +41,12 @@ export function RequestAccessForm() {
 
   if (done) {
     return (
-      <div role="status" className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 p-5 text-sm">
-        <CheckCircle2 className="size-5 text-success" />
-        <span>Thanks — we&apos;ll be in touch soon.</span>
+      <div role="status" className="flex flex-col items-center rounded-2xl border border-success/25 bg-success/5 px-6 py-10 text-center">
+        <span className="grid size-12 place-items-center rounded-full bg-success/10 text-success">
+          <CheckCircle2 className="size-6" />
+        </span>
+        <p className="mt-4 font-medium">Thanks — we&apos;ll be in touch soon.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Your request is on the early-access list.</p>
       </div>
     );
   }
@@ -51,25 +55,40 @@ export function RequestAccessForm() {
     <form onSubmit={submit} noValidate className="grid gap-4">
       <div className="grid gap-1.5">
         <Label htmlFor="ra-email">Work email</Label>
-        <Input id="ra-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}
-          aria-invalid={!!errors.email} aria-describedby={errors.email ? "ra-email-error" : undefined} className="h-10" />
+        <div className="relative">
+          <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/70" />
+          <Input id="ra-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}
+            aria-invalid={!!errors.email} aria-describedby={errors.email ? "ra-email-error" : undefined}
+            className={cn("h-10 bg-background/60 pl-9", errors.email && "border-danger/60")} placeholder="you@company.com" />
+        </div>
         {errors.email && <p id="ra-email-error" className="text-sm text-danger">{errors.email}</p>}
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="ra-company">Company</Label>
-        <Input id="ra-company" autoComplete="organization" value={company} onChange={(e) => setCompany(e.target.value)} className="h-10" />
+        <div className="relative">
+          <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/70" />
+          <Input id="ra-company" autoComplete="organization" value={company} onChange={(e) => setCompany(e.target.value)}
+            className="h-10 bg-background/60 pl-9" placeholder="Your company" />
+        </div>
         {errors.company && <p className="text-sm text-danger">{errors.company}</p>}
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor="ra-message">What do you build? <span className="text-muted-foreground">(optional)</span></Label>
-        <Textarea id="ra-message" rows={3} value={message} onChange={(e) => setMessage(e.target.value)} />
+        <Label htmlFor="ra-message">
+          What do you build? <span className="text-muted-foreground">(optional)</span>
+        </Label>
+        <Textarea id="ra-message" rows={3} value={message} onChange={(e) => setMessage(e.target.value)}
+          className="resize-none bg-background/60" placeholder="Hardware, firmware, IoT, installable software…" />
         {errors.message && <p className="text-sm text-danger">{errors.message}</p>}
       </div>
-      {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
-      <Button type="submit" disabled={sending} className="h-10 bg-brand text-brand-foreground hover:bg-brand/90">
+      {errors.form && <p role="alert" className="text-sm text-danger">{errors.form}</p>}
+      <Button type="submit" disabled={sending} className="group h-11 gap-2 bg-brand text-brand-foreground shadow-sm shadow-brand/20 hover:bg-brand/90">
         {sending && <Loader2 className="size-4 animate-spin" />}
         Request access
+        {!sending && <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />}
       </Button>
+      <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+        No newsletter. We only use this to reply about early access.
+      </p>
     </form>
   );
 }
