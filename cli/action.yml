@@ -1,0 +1,65 @@
+name: CRA Desk SBOM upload
+description: Upload a CycloneDX SBOM to CRA Desk and optionally fail the build on actively exploited (CISA KEV) vulnerabilities.
+branding:
+  icon: shield
+  color: blue
+inputs:
+  api-url:
+    description: CRA Desk URL, for example https://cradesk.example.com
+    required: true
+  api-key:
+    description: CRA Desk API key (store it as a repository secret)
+    required: true
+  product:
+    description: Product name as registered in CRA Desk
+    required: true
+  version:
+    description: Product version, for example the release tag
+    required: true
+  file:
+    description: Path to the CycloneDX JSON SBOM
+    required: false
+    default: bom.json
+  wait:
+    description: Wait for the vulnerability scan and print the results
+    required: false
+    default: "true"
+  fail-on-kev:
+    description: Fail the step (exit code 3) if an actively exploited vulnerability is found
+    required: false
+    default: "false"
+  timeout:
+    description: How long to wait for the scan, as a Go duration (for example 5m)
+    required: false
+    default: 5m
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: ${{ github.action_path }}/go.mod
+        cache: false
+    - name: Build cradesk
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        bin="$RUNNER_TEMP/cradesk$(go env GOEXE)"
+        go build -trimpath -o "$bin" ./cmd/cradesk
+        echo "CRADESK_BIN=$bin" >> "$GITHUB_ENV"
+    - name: Upload SBOM to CRA Desk
+      shell: bash
+      env:
+        CRADESK_API_URL: ${{ inputs.api-url }}
+        CRADESK_API_KEY: ${{ inputs.api-key }}
+        INPUT_PRODUCT: ${{ inputs.product }}
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_FILE: ${{ inputs.file }}
+        INPUT_WAIT: ${{ inputs.wait }}
+        INPUT_FAIL_ON_KEV: ${{ inputs.fail-on-kev }}
+        INPUT_TIMEOUT: ${{ inputs.timeout }}
+      run: |
+        args=(upload --product "$INPUT_PRODUCT" --version "$INPUT_VERSION" --file "$INPUT_FILE" --timeout "$INPUT_TIMEOUT")
+        if [ "$INPUT_WAIT" = "true" ]; then args+=(--wait); fi
+        if [ "$INPUT_FAIL_ON_KEV" = "true" ]; then args+=(--fail-on-kev); fi
+        "$CRADESK_BIN" "${args[@]}"
