@@ -25,8 +25,9 @@ Compliance desk for the **EU Cyber Resilience Act** (Regulation (EU) 2024/2847),
 | 0 | Monorepo, PostgreSQL, Spring Boot skeleton | ✅ |
 | 1 | Product catalog API (products + versions), validation, RFC 9457 errors | ✅ |
 | 2 | Identity & security: session login, invitations, read-only demo, API keys, per-organization isolation, waitlist | ✅ |
-| 3 | SBOM ingest: CycloneDX JSON 1.4–1.6 per product version, validation, size limits, components by purl | ✅ 118 tests |
-| 4–9 | Vulnerability matching, Go CLI, reporting + audit, web, DevOps | planned |
+| 3 | SBOM ingest: CycloneDX JSON 1.4–1.6 per product version, validation, size limits, components by purl | ✅ |
+| 4 | Vulnerability monitoring: OSV matching, CISA KEV catalog, findings to review, scan queue and daily rescan | ✅ 159 tests |
+| 5–9 | Go CLI, reporting + audit, web, DevOps, polish | planned |
 
 ## Local development
 
@@ -46,6 +47,9 @@ set -a && . ../.env && set +a && ./mvnw spring-boot:run
 | `CRADESK_DEMO_ENABLED` | Seed the read-only demo account on startup | `true` |
 | `SESSION_COOKIE_SECURE` | Send the session cookie only over HTTPS (set `true` in production) | `false` |
 | `CRADESK_SBOM_MAX_BYTES` | Largest accepted SBOM upload, in bytes | `5242880` (5 MB) |
+| `CRADESK_OSV_BASE_URL` | OSV API | `https://api.osv.dev` |
+| `CRADESK_KEV_URL` | CISA Known Exploited Vulnerabilities JSON feed | CISA's official feed |
+| `CRADESK_SCAN_SCHEDULER_ENABLED` | Run the scan queue (every 30 s), the daily rescan (03:00 UTC) and the startup KEV load | `true` |
 
 ### Live demo
 
@@ -55,7 +59,7 @@ With the API running, from the repo root:
 set -a && . ./.env && set +a && bash scripts/demo.sh
 ```
 
-It opens the read-only demo (writes are 403), invites a manufacturer with the admin token, accepts the invitation, registers a product and a firmware version, creates an API key, uploads a CycloneDX SBOM with it as a CI pipeline would, reads the SBOM summary and components, shows an SPDX file being rejected (400), revokes the key (401) and sends a "Request access" form (202).
+It opens the read-only demo (writes are 403), invites a manufacturer with the admin token, accepts the invitation, registers a product and a firmware version, creates an API key, uploads a CycloneDX SBOM with it as a CI pipeline would, reads the SBOM summary and components, waits for the vulnerability scan against the real OSV and CISA KEV services and shows the findings (Log4Shell is in KEV), shows an SPDX file being rejected (400), revokes the key (401) and sends a "Request access" form (202).
 
 ## SBOM ingest
 
@@ -70,6 +74,14 @@ curl -X PUT "$API/api/products/$PRODUCT/versions/$VERSION/sbom" \
   -H "Authorization: Bearer $CRADESK_API_KEY" \
   -H 'Content-Type: application/vnd.cyclonedx+json' --data-binary @bom.json
 ```
+
+## Vulnerability monitoring
+
+- Every SBOM upload queues a scan; a scheduler drains the queue every 30 s and rescans every version daily at 03:00 UTC. Uploads never wait for external services.
+- Components with a versioned purl are matched against [OSV](https://osv.dev) (batches of 1000, paginated results, vulnerability details cached and refetched only when modified).
+- The [CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) catalog is refreshed daily and replaced atomically; a failed download keeps the previous one.
+- A vulnerability in KEV (by its id or any CVE alias) creates a **finding to review** — it does not open a reportable event or start the CRA clocks; a person does that (stage 6). Findings are never deleted: one that disappears after an SBOM fix is marked absent.
+- If OSV or KEV fail, the scan is `FAILED` with the reason and nothing is half-written.
 
 ## Security model
 
@@ -109,6 +121,9 @@ All errors are RFC 9457 problem details. "Session" means a signed-in member; "ke
 | `GET` | `/api/products/{id}/versions/{versionId}/sbom` | session, demo, key | 200 summary · 404 |
 | `GET` | `/api/products/{id}/versions/{versionId}/sbom/components?page=&size=` | session, demo, key | 200 page sorted by name (size 1–200) · 400 · 404 |
 | `GET` | `/api/products/{id}/versions/{versionId}/sbom/document` | session, demo, key | 200 original file · 404 |
+| `GET` | `/api/products/{id}/versions/{versionId}/vulnerabilities` | session, demo, key | 200 scan status + vulnerabilities, KEV first · 404 without SBOM |
+| `POST` | `/api/products/{id}/versions/{versionId}/scan` | session, key | 202 rescan queued · 404 without SBOM |
+| `GET` | `/api/findings` | session, demo, key | 200 the organization's findings pending review |
 
 ## License
 

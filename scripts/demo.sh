@@ -93,17 +93,34 @@ step "11. SBOM summary → 200 and the first page of components → 200"
 call GET "/api/products/$PRODUCT/versions/$VERSION/sbom"
 call GET "/api/products/$PRODUCT/versions/$VERSION/sbom/components?size=3"
 
-step "12. An SPDX document is rejected with the reason → 400"
+step "12. The upload queued a vulnerability scan (OSV + CISA KEV); ask again → 202 and wait until it is DONE"
+call POST "/api/products/$PRODUCT/versions/$VERSION/scan"
+for i in $(seq 1 30); do
+  curl -s -o "$LAST" -b "$JAR" "$API/api/products/$PRODUCT/versions/$VERSION/vulnerabilities"
+  STATUS=$(field status)
+  printf '  scan status: %s
+' "${STATUS:-none}"
+  [ "$STATUS" = "DONE" ] || [ "$STATUS" = "FAILED" ] && break
+  sleep 3
+done
+
+step "13. Vulnerabilities of the version, KEV first → 200"
+call GET "/api/products/$PRODUCT/versions/$VERSION/vulnerabilities"
+
+step "14. Findings to review (actively exploited, from CISA KEV) → 200"
+call GET /api/findings
+
+step "15. An SPDX document is rejected with the reason → 400"
 SPDX=$(mktemp)
 printf '{"spdxVersion":"SPDX-2.3","SPDXID":"SPDXRef-DOCUMENT","name":"x","packages":[]}' > "$SPDX"
 call_with_key "$KEY" PUT "/api/products/$PRODUCT/versions/$VERSION/sbom" "$SPDX"
 rm -f "$SPDX"
 
-step "13. Revoke the key → 204, then the same key → 401"
+step "16. Revoke the key → 204, then the same key → 401"
 call DELETE "/api/api-keys/$KEY_ID"
 call_with_key "$KEY" GET /api/products
 
-step "14. Public 'Request access' form → 202"
+step "17. Public 'Request access' form → 202"
 call POST /api/access-requests '{"email":"curious-'"$RUN"'@example.com","company":"Curious Devices"}'
 
 printf '\n\033[1;32m✔ Demo finished.\033[0m\n'
