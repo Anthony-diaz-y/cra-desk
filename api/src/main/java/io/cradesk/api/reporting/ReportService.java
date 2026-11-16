@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import io.cradesk.api.audit.AuditService;
 import io.cradesk.api.catalog.ProductVersion;
 import io.cradesk.api.catalog.ProductVersionRepository;
 import io.cradesk.api.common.FileNames;
@@ -57,12 +58,13 @@ public class ReportService {
     private final TransactionTemplate transactions;
     private final JsonMapper json;
     private final Clock clock;
+    private final AuditService audit;
 
-    // Recibe los servicios y repositorios del evento, los generadores, el cupo, la empresa, las transacciones y el reloj.
+    // Recibe los servicios y repositorios del evento, los generadores, el cupo, la empresa, las transacciones, el reloj y la auditoría.
     public ReportService(EventService events, ReportRepository reports, FindingRepository findings,
             KevEntryRepository kev, VulnerabilityMatchRepository matches, ProductVersionRepository versions,
             OrganizationRepository organizations, DraftGenerators generators, AiQuota quota, CurrentTenant tenant,
-            TransactionTemplate transactions, JsonMapper json, Clock clock) {
+            TransactionTemplate transactions, JsonMapper json, Clock clock, AuditService audit) {
         this.events = events;
         this.reports = reports;
         this.findings = findings;
@@ -76,6 +78,7 @@ public class ReportService {
         this.transactions = transactions;
         this.json = json;
         this.clock = clock;
+        this.audit = audit;
     }
 
     // Devuelve un reporte del evento de la empresa actual.
@@ -118,6 +121,10 @@ public class ReportService {
             Report report = locked(eventId, type);
             requireNotSent(report);
             report.draft(finalContent.toJson(json), generatedBy, finalError, clock.instant());
+            Map<String, Object> details = details(report);
+            details.put("generatedBy", generatedBy);
+            details.put("aiError", finalError);
+            audit.record("REPORT_DRAFTED", "report", report.getId().toString(), details);
             return toResponse(report);
         });
     }
@@ -129,6 +136,7 @@ public class ReportService {
         Report report = locked(eventId, type);
         requireNotSent(report);
         report.edit(parsed.toJson(json), clock.instant());
+        audit.record("REPORT_EDITED", "report", report.getId().toString(), details(report));
         return toResponse(report);
     }
 
@@ -141,6 +149,7 @@ public class ReportService {
             throw new ReportNotDraftedException(type);
         }
         report.approve(tenant.principal().userId(), clock.instant());
+        audit.record("REPORT_APPROVED", "report", report.getId().toString(), details(report));
         return toResponse(report);
     }
 
@@ -162,6 +171,10 @@ public class ReportService {
         }
         String reference = enisaReference == null || enisaReference.isBlank() ? null : enisaReference.strip();
         report.markSent(tenant.principal().userId(), sent, reference, now);
+        Map<String, Object> details = details(report);
+        details.put("sentAt", report.getSentAt().toString());
+        details.put("enisaReference", reference);
+        audit.record("REPORT_SENT", "report", report.getId().toString(), details);
         return toResponse(report);
     }
 
@@ -231,6 +244,15 @@ public class ReportService {
         JsonNode content = r.getContent() == null ? null : json.readTree(r.getContent());
         return new ReportResponse(r.getType(), r.getDueAt(), r.statusAt(clock.instant()), r.getDraftStatus(),
                 content, r.getGeneratedBy(), r.getAiError(), r.getApprovedAt(), r.getSentAt(), r.getEnisaReference());
+    }
+
+    // Arma los detalles de auditoría comunes de un reporte: evento, tipo y CVE.
+    private static Map<String, Object> details(Report report) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("eventId", report.getEvent().getId().toString());
+        details.put("type", report.getType().name());
+        details.put("cveId", report.getEvent().getCveId());
+        return details;
     }
 
     // Recorta el motivo del fallo de la IA al largo de su columna.

@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 
+import io.cradesk.api.audit.AuditService;
 import io.cradesk.api.catalog.ProductService;
 import io.cradesk.api.common.FileNames;
 import io.cradesk.api.catalog.ProductVersion;
@@ -46,11 +47,12 @@ public class SbomService {
     private final TransactionTemplate transactions;
     private final SbomProperties properties;
     private final ApplicationEventPublisher events;
+    private final AuditService audit;
 
-    // Recibe el parser, el catálogo, los repositorios, el usuario actual, las transacciones y la configuración.
+    // Recibe el parser, el catálogo, los repositorios, el usuario actual, las transacciones, la configuración y la auditoría.
     public SbomService(CycloneDxParser parser, ProductService products, SbomRepository sboms,
             SbomComponentRepository components, CurrentTenant tenant, TransactionTemplate transactions,
-            SbomProperties properties, ApplicationEventPublisher events) {
+            SbomProperties properties, ApplicationEventPublisher events, AuditService audit) {
         this.parser = parser;
         this.products = products;
         this.sboms = sboms;
@@ -59,6 +61,7 @@ public class SbomService {
         this.transactions = transactions;
         this.properties = properties;
         this.events = events;
+        this.audit = audit;
     }
 
     // Lee y valida el SBOM recibido y lo guarda en la versión, reemplazando el anterior si existía.
@@ -71,7 +74,7 @@ public class SbomService {
         UploadChannel channel = principal.role() == AccessRole.CLI ? UploadChannel.CLI : UploadChannel.WEB;
         return transactions.execute(status -> {
             ProductVersion version = products.lockVersion(productId, versionId);
-            return store(productId, version.getId(), document, parsed, principal.userId(), channel);
+            return audited(store(productId, version.getId(), document, parsed, principal.userId(), channel));
         });
     }
 
@@ -99,7 +102,7 @@ public class SbomService {
         UUID productId = resolved.getProduct().getId();
         return transactions.execute(status -> {
             ProductVersion locked = products.lockVersion(productId, resolved.getId());
-            return store(productId, locked.getId(), document, parsed, principal.userId(), channel);
+            return audited(store(productId, locked.getId(), document, parsed, principal.userId(), channel));
         });
     }
 
@@ -120,6 +123,19 @@ public class SbomService {
         components.flush();
         events.publishEvent(new SbomUploadedEvent(versionId));
         return new UploadResult(SbomSummary.of(sbom, productId), replaced);
+    }
+
+    // Registra la subida del SBOM en la auditoría de la empresa y devuelve el mismo resultado.
+    private UploadResult audited(UploadResult result) {
+        SbomSummary s = result.summary();
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("versionId", s.versionId().toString());
+        details.put("sha256", s.sha256());
+        details.put("components", s.componentCount());
+        details.put("channel", s.uploadedVia().name());
+        details.put("replaced", result.replaced());
+        audit.record("SBOM_UPLOADED", "sbom", s.id().toString(), details);
+        return result;
     }
 
     // Devuelve el resumen del SBOM de una versión de la empresa actual, o 404 si no hay.
