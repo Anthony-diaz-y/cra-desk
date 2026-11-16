@@ -97,7 +97,7 @@ class AuditApiIT {
         acme.perform(put(sbomUrl(productId, versionId)).contentType(MediaType.APPLICATION_JSON)
                 .content(json.getBytes(StandardCharsets.UTF_8))).andExpect(status().isCreated());
         scanner.scan(UUID.fromString(versionId));
-        UUID findingId = jdbc.queryForObject("SELECT id FROM findings", UUID.class);
+        UUID findingId = jdbc.queryForObject("SELECT id FROM findings WHERE organization_id = ?", UUID.class, acmeTenant.organizationId());
         String eventId = JsonPath.read(acme.perform(post("/api/findings/{id}/confirm", findingId))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.id");
         early = "/api/events/" + eventId + "/reports/EARLY_WARNING";

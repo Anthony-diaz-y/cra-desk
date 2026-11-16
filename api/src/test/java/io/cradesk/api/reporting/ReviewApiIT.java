@@ -83,7 +83,7 @@ class ReviewApiIT {
         acme.perform(put(sbomUrl(productId, versionId)).contentType(MediaType.APPLICATION_JSON)
                 .content(json.getBytes(StandardCharsets.UTF_8))).andExpect(status().isCreated());
         scanner.scan(UUID.fromString(versionId));
-        findingId = jdbc.queryForObject("SELECT id FROM findings", UUID.class).toString();
+        findingId = jdbc.queryForObject("SELECT id FROM findings WHERE organization_id = ?", UUID.class, acmeTenant.organizationId()).toString();
     }
 
     // Borra datos, catálogo, vulnerabilidades y lo programado en los dobles después de cada test.
@@ -117,7 +117,7 @@ class ReviewApiIT {
                 .isEqualTo(confirmedAt.plus(Duration.ofHours(72)));
         assertThat(Instant.parse((String) JsonPath.read(body, "$.reports[2].dueAt")))
                 .isEqualTo(confirmedAt.plus(Duration.ofDays(14)));
-        assertThat(jdbc.queryForObject("SELECT status FROM findings", String.class)).isEqualTo("CONFIRMED");
+        assertThat(jdbc.queryForObject("SELECT status FROM findings WHERE organization_id = ?", String.class, acmeTenant.organizationId())).isEqualTo("CONFIRMED");
     }
 
     // Comprueba que descartar exige un motivo de al menos 10 caracteres.
@@ -139,7 +139,7 @@ class ReviewApiIT {
         acme.perform(get("/api/findings")).andExpect(jsonPath("$.length()").value(0));
         acme.perform(get("/api/findings").param("status", "DISMISSED"))
                 .andExpect(jsonPath("$.length()").value(1));
-        assertThat(jdbc.queryForObject("SELECT dismiss_reason FROM findings", String.class))
+        assertThat(jdbc.queryForObject("SELECT dismiss_reason FROM findings WHERE organization_id = ?", String.class, acmeTenant.organizationId()))
                 .startsWith("log4j-core is only");
     }
 

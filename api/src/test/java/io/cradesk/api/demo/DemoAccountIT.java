@@ -113,6 +113,41 @@ class DemoAccountIT {
                 .andExpect(status().isForbidden());
     }
 
+    // Comprueba que la demo trae un evento Log4Shell con el aviso temprano enviado a tiempo y la auditoría válida.
+    @Test
+    void demoHasLog4ShellEventWithEarlyWarningSent() throws Exception {
+        MockHttpSession session = demoSession();
+
+        String events = mvc.perform(get("/api/events").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].cveId").value("CVE-2021-44228"))
+                .andExpect(jsonPath("$[0].productName").value("Smart Door Lock"))
+                .andExpect(jsonPath("$[0].version").value("1.1.0"))
+                .andReturn().getResponse().getContentAsString();
+        String eventId = JsonPath.read(events, "$[0].id");
+        String reports = "/api/events/" + eventId + "/reports/";
+
+        mvc.perform(get(reports + "EARLY_WARNING").session(session))
+                .andExpect(jsonPath("$.draftStatus").value("APPROVED"))
+                .andExpect(jsonPath("$.status").value("SENT_ON_TIME"))
+                .andExpect(jsonPath("$.enisaReference").value("ENISA-DEMO-0001"))
+                .andExpect(jsonPath("$.content.summary").exists());
+        mvc.perform(get(reports + "NOTIFICATION").session(session))
+                .andExpect(jsonPath("$.draftStatus").value("DRAFTED"))
+                .andExpect(jsonPath("$.content.vulnerabilityDescription").exists());
+        mvc.perform(get(reports + "FINAL_REPORT").session(session))
+                .andExpect(jsonPath("$.draftStatus").value("DRAFTED"))
+                .andExpect(jsonPath("$.content.lessonsLearned").exists());
+        mvc.perform(get(reports + "EARLY_WARNING/export").param("format", "markdown").session(session))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/audit/verify").session(session))
+                .andExpect(jsonPath("$.valid").value(true))
+                .andExpect(jsonPath("$.entries").value(greaterThan(5)));
+        mvc.perform(post(reports + "NOTIFICATION/approve").session(session).with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
     // Comprueba que ejecutar el inicializador dos veces no duplica la empresa ni los productos.
     @Test
     void initializerIsIdempotent() {
@@ -126,6 +161,11 @@ class DemoAccountIT {
                 """, Integer.class, DemoProperties.ORGANIZATION_NAME);
         assertThat(organizations).isEqualTo(1);
         assertThat(products).isEqualTo(2);
+        Integer events = jdbc.queryForObject("""
+                SELECT count(*) FROM reportable_events e JOIN organizations o ON o.id = e.organization_id
+                WHERE o.name = ?
+                """, Integer.class, DemoProperties.ORGANIZATION_NAME);
+        assertThat(events).isEqualTo(1);
     }
 
     // Comprueba que una demo creada antes del módulo SBOM recibe el SBOM de ejemplo al volver a sembrar.
@@ -164,16 +204,9 @@ class DemoAccountIT {
     @Test
     void organizationWithDemoNameDoesNotBlockSeeding() throws Exception {
         entityManager.flush();
-        jdbc.update("DELETE FROM sboms WHERE product_version_id IN (SELECT v.id FROM product_versions v"
-                + " JOIN products p ON p.id = v.product_id JOIN organizations o ON o.id = p.organization_id"
-                + " WHERE o.name = ?)", DemoProperties.ORGANIZATION_NAME);
-        jdbc.update("DELETE FROM product_versions WHERE product_id IN (SELECT p.id FROM products p"
-                + " JOIN organizations o ON o.id = p.organization_id WHERE o.name = ?)", DemoProperties.ORGANIZATION_NAME);
-        jdbc.update("DELETE FROM products WHERE organization_id IN (SELECT id FROM organizations WHERE name = ?)",
-                DemoProperties.ORGANIZATION_NAME);
-        jdbc.update("DELETE FROM users WHERE organization_id IN (SELECT id FROM organizations WHERE name = ?)",
-                DemoProperties.ORGANIZATION_NAME);
-        jdbc.update("DELETE FROM organizations WHERE name = ?", DemoProperties.ORGANIZATION_NAME);
+        jdbc.update("UPDATE users SET email = 'retired-demo@example.com' WHERE email = ?", DemoProperties.EMAIL);
+        jdbc.update("UPDATE organizations SET name = 'Retired demo' WHERE name = ?", DemoProperties.ORGANIZATION_NAME);
+        entityManager.clear();
         tenants.create(DemoProperties.ORGANIZATION_NAME);
 
         initializer.seed();

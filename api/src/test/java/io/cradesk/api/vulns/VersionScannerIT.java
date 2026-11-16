@@ -101,7 +101,7 @@ class VersionScannerIT {
         assertThat(count("vulnerability_matches")).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM vulnerability_matches WHERE kev", Integer.class))
                 .isEqualTo(1);
-        Map<String, Object> finding = jdbc.queryForMap("SELECT * FROM findings");
+        Map<String, Object> finding = jdbc.queryForMap("SELECT * FROM findings WHERE organization_id = ?", acmeTenant.organizationId());
         assertThat(finding.get("cve_id")).isEqualTo("CVE-2021-44228");
         assertThat(finding.get("vulnerability_id")).isEqualTo(LOG4SHELL);
         assertThat(finding.get("status")).isEqualTo("PENDING_REVIEW");
@@ -128,7 +128,7 @@ class VersionScannerIT {
         scanner.scan(UUID.fromString(versionId));
 
         assertThat(count("findings")).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT present FROM findings", Boolean.class)).isFalse();
+        assertThat(jdbc.queryForObject("SELECT present FROM findings WHERE organization_id = ?", Boolean.class, acmeTenant.organizationId())).isFalse();
         assertThat(count("vulnerability_matches")).isEqualTo(1);
     }
 
@@ -174,7 +174,7 @@ class VersionScannerIT {
         scanner.scan(UUID.fromString(versionId));
 
         assertThat(count("findings")).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT cve_id FROM findings", String.class)).isEqualTo("CVE-2021-44228");
+        assertThat(jdbc.queryForObject("SELECT cve_id FROM findings WHERE organization_id = ?", String.class, acmeTenant.organizationId())).isEqualTo("CVE-2021-44228");
         assertThat(count("vulnerability_matches")).isEqualTo(3);
     }
 

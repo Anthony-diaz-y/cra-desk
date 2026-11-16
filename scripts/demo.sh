@@ -110,17 +110,39 @@ call GET "/api/products/$PRODUCT/versions/$VERSION/vulnerabilities"
 step "14. Findings to review (actively exploited, from CISA KEV) → 200"
 call GET /api/findings
 
-step "15. An SPDX document is rejected with the reason → 400"
+step "15. Confirm the Log4Shell finding: opens a reportable event with the 24 h / 72 h / 14 d clocks → 201"
+FINDING=$(sed 's/},{/}\n{/g' "$LAST" | grep 'CVE-2021-44228' | sed -n 's/^[[{]*"id":"\([^"]*\)".*/\1/p' | head -1)
+call POST "/api/findings/$FINDING/confirm"
+EVENT=$(field id)
+EARLY="/api/events/$EVENT/reports/EARLY_WARNING"
+
+step "16. Draft the 24 h early warning (AI provider if configured, otherwise the template) → 200"
+call POST "$EARLY/draft"
+
+step "17. A person reviews and approves the draft → 200"
+call POST "$EARLY/approve"
+
+step "18. Mark it sent to ENISA with the reference they gave: the clock stops → 200"
+call POST "$EARLY/sent" '{"enisaReference":"ENISA-'"$RUN"'"}'
+
+step "19. Export the approved early warning as Markdown → 200"
+call GET "$EARLY/export?format=markdown"
+
+step "20. Audit log (newest first) and hash-chain verification → 200"
+call GET "/api/audit?size=3"
+call GET /api/audit/verify
+
+step "21. An SPDX document is rejected with the reason → 400"
 SPDX=$(mktemp)
 printf '{"spdxVersion":"SPDX-2.3","SPDXID":"SPDXRef-DOCUMENT","name":"x","packages":[]}' > "$SPDX"
 call_with_key "$KEY" PUT "/api/products/$PRODUCT/versions/$VERSION/sbom" "$SPDX"
 rm -f "$SPDX"
 
-step "16. Revoke the key → 204, then the same key → 401"
+step "22. Revoke the key → 204, then the same key → 401"
 call DELETE "/api/api-keys/$KEY_ID"
 call_with_key "$KEY" GET /api/products
 
-step "17. Public 'Request access' form → 202"
+step "23. Public 'Request access' form → 202"
 call POST /api/access-requests '{"email":"curious-'"$RUN"'@example.com","company":"Curious Devices"}'
 
 printf '\n\033[1;32m✔ Demo finished.\033[0m\n'

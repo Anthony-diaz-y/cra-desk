@@ -1,0 +1,28 @@
+{
+  "EARLY_WARNING": {
+    "summary": "CRA Desk Demo has identified that Smart Door Lock 1.1.0 ships log4j-core 2.14.1, which is affected by CVE-2021-44228 (Log4Shell), a remote code execution vulnerability listed in the CISA Known Exploited Vulnerabilities catalog.",
+    "activelyExploited": "Yes. CVE-2021-44228 is listed in the CISA KEV catalog, which means exploitation in the wild has been observed. We have no evidence yet of exploitation against our own devices.",
+    "suspectedMaliciousAct": "No suspected malicious act against our product or customers has been identified at this time.",
+    "memberStatesAffected": "The Smart Door Lock is sold in Germany, France, Spain and the Netherlands. Devices in all four Member States run the affected version.",
+    "immediateMeasures": "The cloud relay that forwards untrusted input to the device has been configured to drop JNDI lookup patterns. Users are advised to keep remote access disabled until the security update is installed."
+  },
+  "NOTIFICATION": {
+    "summary": "Smart Door Lock 1.1.0 includes log4j-core 2.14.1, affected by CVE-2021-44228 (Log4Shell). The vulnerability is actively exploited according to the CISA KEV catalog.",
+    "activelyExploited": "Yes, according to the CISA KEV catalog. No exploitation against our devices has been confirmed.",
+    "suspectedMaliciousAct": "None identified.",
+    "memberStatesAffected": "Germany, France, Spain and the Netherlands.",
+    "immediateMeasures": "Cloud relay filtering of JNDI lookup patterns; remote access disabled by default for new pairings.",
+    "vulnerabilityDescription": "Apache Log4j 2 versions up to 2.14.1 evaluate JNDI lookups in logged messages. An attacker who can make the device log a crafted string can load and execute remote code.",
+    "generalNature": "Remote code execution through untrusted input written to logs (CWE-502, CWE-400, CWE-20).",
+    "correctiveMeasuresAvailable": "Firmware 1.1.1, which upgrades log4j-core to 2.17.1, is in final testing and is scheduled for over-the-air release.",
+    "mitigationsForUsers": "Keep the companion app updated, leave remote access disabled until firmware 1.1.1 is installed, and install the update as soon as it is offered.",
+    "sensitivity": "TLP:AMBER until firmware 1.1.1 is available to all users."
+  },
+  "FINAL_REPORT": {
+    "vulnerabilityDescription": "log4j-core 2.14.1, bundled in Smart Door Lock 1.1.0, is affected by CVE-2021-44228: JNDI lookups in logged messages allow remote code execution.",
+    "severityAndImpact": "Critical (CVSS 10.0). A successful attack would give an attacker control of the lock's network module, but not of the mechanical lock, which requires a signed command from the paired phone.",
+    "maliciousActorInformation": "TO_BE_COMPLETED",
+    "securityUpdateDetails": "Firmware 1.1.1 upgrades log4j-core to 2.17.1 and removes the JndiLookup class. It is delivered over the air to all registered devices.",
+    "lessonsLearned": "TO_BE_COMPLETED"
+  }
+}
