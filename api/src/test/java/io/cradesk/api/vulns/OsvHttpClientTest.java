@@ -7,6 +7,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import java.io.IOException;
@@ -21,6 +22,7 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.test.web.client.ExpectedCount;
@@ -112,6 +114,14 @@ class OsvHttpClientTest {
 
         assertThat(vulnerability.severity()).isEqualTo("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H");
         assertThat(vulnerability.published()).isNull();
+    }
+
+    // Comprueba que un detalle que OSV ya no tiene (404) devuelve null en vez de fallar.
+    @Test
+    void missingDetailReturnsNull() {
+        server.expect(requestTo(BASE + "/v1/vulns/GHSA-gone")).andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        assertThat(client.fetch("GHSA-gone")).isNull();
     }
 
     // Comprueba que un error 500 de OSV se convierte en ExternalServiceException.

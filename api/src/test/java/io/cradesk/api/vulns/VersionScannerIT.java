@@ -166,6 +166,78 @@ class VersionScannerIT {
         assertThat(scan().get("requested_at")).isEqualTo(requestedAt);
     }
 
+    // Comprueba que dos registros de OSV con el mismo CVE explotado generan un solo hallazgo.
+    @Test
+    void sameKevCveFromTwoOsvRecordsIsOneFinding() {
+        osv.willReturn(LOG4J, vuln("GO-2021-0001", "CRITICAL", "cve-2021-44228"));
+
+        scanner.scan(UUID.fromString(versionId));
+
+        assertThat(count("findings")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT cve_id FROM findings", String.class)).isEqualTo("CVE-2021-44228");
+        assertThat(count("vulnerability_matches")).isEqualTo(3);
+    }
+
+    // Comprueba que si el SBOM se reemplaza durante la consulta a OSV no se escribe nada viejo y queda pendiente.
+    @Test
+    void sbomReplacedDuringScanLeavesItPendingWithoutErrors() {
+        osv.onQuery(() -> {
+            try {
+                upload(false);
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
+        });
+
+        scanner.scan(UUID.fromString(versionId));
+
+        assertThat(scan().get("status")).isEqualTo("PENDING");
+        assertThat(scan().get("error")).isNull();
+        assertThat(count("findings")).isZero();
+        scanner.scan(UUID.fromString(versionId));
+        assertThat(scan().get("status")).isEqualTo("DONE");
+        assertThat(count("vulnerability_matches")).isEqualTo(1);
+    }
+
+    // Comprueba que una vulnerabilidad cuyo detalle OSV ya no tiene se salta sin fallar el escaneo.
+    @Test
+    void vulnerabilityWithoutDetailIsSkipped() {
+        osv.willReturnWithoutDetail(LODASH, "GHSA-gone-gone-gone");
+
+        scanner.scan(UUID.fromString(versionId));
+
+        assertThat(scan().get("status")).isEqualTo("DONE");
+        assertThat(count("vulnerability_matches")).isEqualTo(2);
+    }
+
+    // Comprueba que un purl con @ solo en el nombre (scope npm sin codificar) cuenta como no escaneado.
+    @Test
+    void unencodedScopeWithoutVersionIsNotScanned() throws Exception {
+        String json = "{\"bomFormat\":\"CycloneDX\",\"specVersion\":\"1.5\",\"components\":["
+                + "{\"name\":\"core\",\"purl\":\"pkg:npm/@angular/core\"},"
+                + "{\"name\":\"lodash\",\"version\":\"4.17.15\",\"purl\":\"" + LODASH + "\"}]}";
+        acme.perform(put(sbomUrl(productId, versionId)).contentType(MediaType.APPLICATION_JSON)
+                .content(json.getBytes(StandardCharsets.UTF_8))).andExpect(status().is2xxSuccessful());
+
+        scanner.scan(UUID.fromString(versionId));
+
+        assertThat(scan().get("components_scanned")).isEqualTo(1);
+        assertThat(scan().get("components_not_scanned")).isEqualTo(1);
+    }
+
+    // Comprueba que un error interno no deja texto técnico en el motivo del fallo que ve el usuario.
+    @Test
+    void internalErrorIsNotExposedInScanError() {
+        osv.onQuery(() -> {
+            throw new IllegalStateException("ERROR: duplicate key value violates unique constraint secret_idx");
+        });
+
+        scanner.scan(UUID.fromString(versionId));
+
+        assertThat(scan().get("status")).isEqualTo("FAILED");
+        assertThat(scan().get("error")).isEqualTo("Internal error during scan");
+    }
+
     // Sube un SBOM con lodash, un componente sin purl, uno sin versión y, si se pide, log4j.
     private void upload(boolean withLog4j) throws Exception {
         String log4j = withLog4j ? "{\"name\":\"log4j-core\",\"version\":\"2.14.1\",\"purl\":\"" + LOG4J + "\"}," : "";

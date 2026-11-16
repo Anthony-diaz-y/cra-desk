@@ -112,17 +112,18 @@ class VulnsRepositoryIT {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM vulnerability_matches", Integer.class)).isZero();
     }
 
-    // Comprueba que no puede haber dos hallazgos de la misma vulnerabilidad en la misma versión.
+    // Comprueba que no puede haber dos hallazgos del mismo CVE en la misma versión, aunque vengan de registros distintos.
     @Test
-    void oneFindingPerVersionAndVulnerability() {
-        Vulnerability vulnerability = vulnerabilities.saveAndFlush(log4shell());
-        findings.saveAndFlush(new Finding(acme.getId(), version.getId(), vulnerability, "CVE-2021-44228", T1));
+    void oneFindingPerVersionAndCve() {
+        Vulnerability ghsa = vulnerabilities.saveAndFlush(log4shell());
+        Vulnerability go = vulnerabilities.saveAndFlush(new Vulnerability("GO-2021-0001", "Log4Shell", "CRITICAL",
+                List.of("CVE-2021-44228"), T1, T1, T1));
+        findings.saveAndFlush(new Finding(acme.getId(), version.getId(), ghsa, "CVE-2021-44228", T1));
 
         DataIntegrityViolationException e = catchThrowableOfType(DataIntegrityViolationException.class,
-                () -> findings.saveAndFlush(
-                        new Finding(acme.getId(), version.getId(), vulnerability, "CVE-2021-44228", T2)));
+                () -> findings.saveAndFlush(new Finding(acme.getId(), version.getId(), go, "CVE-2021-44228", T2)));
 
-        assertThat(Constraints.isViolated(e, Finding.VERSION_VULN_UNIQUE)).isTrue();
+        assertThat(Constraints.isViolated(e, Finding.VERSION_CVE_UNIQUE)).isTrue();
     }
 
     // Comprueba que el siguiente escaneo pendiente es el que se pidió primero.

@@ -42,6 +42,7 @@ public class FakeExternalFeeds {
         private final Map<String, OsvVulnerability> details = new HashMap<>();
         private final Map<String, Integer> fetches = new HashMap<>();
         private boolean failing;
+        private Runnable onQuery;
 
         // Programa que ese purl esté afectado por esas vulnerabilidades.
         public synchronized FakeOsvClient willReturn(String purl, OsvVulnerability... vulnerabilities) {
@@ -58,6 +59,18 @@ public class FakeExternalFeeds {
             return this;
         }
 
+        // Programa que ese purl tenga un id en OSV cuyo detalle no existe (OSV responde 404).
+        public synchronized FakeOsvClient willReturnWithoutDetail(String purl, String id) {
+            hits.computeIfAbsent(purl, p -> new ArrayList<>()).add(new OsvHit(id, Instant.parse("2024-01-01T00:00:00Z")));
+            return this;
+        }
+
+        // Programa algo que se ejecuta al empezar la próxima consulta, por ejemplo reemplazar el SBOM a mitad del escaneo.
+        public synchronized FakeOsvClient onQuery(Runnable hook) {
+            onQuery = hook;
+            return this;
+        }
+
         // Devuelve cuántas veces se pidió el detalle de esa vulnerabilidad.
         public synchronized int fetchCount(String id) {
             return fetches.getOrDefault(id, 0);
@@ -69,11 +82,25 @@ public class FakeExternalFeeds {
             details.clear();
             fetches.clear();
             failing = false;
+            onQuery = null;
         }
 
         // Devuelve las vulnerabilidades programadas para los purls consultados, o falla si así se programó.
         @Override
-        public synchronized Map<String, List<OsvHit>> queryByPurl(List<String> purls) {
+        public Map<String, List<OsvHit>> queryByPurl(List<String> purls) {
+            Runnable hook;
+            synchronized (this) {
+                hook = onQuery;
+                onQuery = null;
+            }
+            if (hook != null) {
+                hook.run();
+            }
+            return query(purls);
+        }
+
+        // Devuelve las vulnerabilidades programadas para esos purls o falla si así se programó.
+        private synchronized Map<String, List<OsvHit>> query(List<String> purls) {
             if (failing) {
                 throw new ExternalServiceException("OSV: HTTP 503");
             }

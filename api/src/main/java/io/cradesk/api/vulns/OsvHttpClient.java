@@ -43,10 +43,18 @@ public class OsvHttpClient implements OsvClient {
         return hits;
     }
 
-    // Descarga el detalle de una vulnerabilidad y extrae resumen, severidad, alias y fechas.
+    // Descarga el detalle de una vulnerabilidad; devuelve null si OSV ya no la tiene (404).
     @Override
     public OsvVulnerability fetch(String id) {
-        JsonNode vuln = call(() -> http.get().uri("/v1/vulns/{id}", id).retrieve().body(JsonNode.class));
+        JsonNode vuln;
+        try {
+            vuln = call(() -> http.get().uri("/v1/vulns/{id}", id).retrieve().body(JsonNode.class));
+        } catch (ExternalServiceException e) {
+            if (e.getCause() instanceof RestClientResponseException http404 && http404.getStatusCode().value() == 404) {
+                return null;
+            }
+            throw e;
+        }
         List<String> aliases = new ArrayList<>();
         vuln.path("aliases").forEach(alias -> aliases.add(alias.asString()));
         return new OsvVulnerability(vuln.path("id").asString(id), text(vuln, "summary"), severity(vuln),

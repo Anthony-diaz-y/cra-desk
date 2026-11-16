@@ -52,7 +52,7 @@ public class ScanScheduler {
         }
     }
 
-    // Al arrancar descarga KEV si nunca se descargó y encola las versiones con SBOM que nunca se escanearon.
+    // Al arrancar descarga KEV si hace falta, recupera escaneos interrumpidos y encola los que nunca se hicieron.
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
         if (!properties.schedulerEnabled()) {
@@ -61,7 +61,16 @@ public class ScanScheduler {
         if (kev.isEmpty()) {
             refreshKev();
         }
+        requeueInterrupted();
         queueNeverScanned();
+    }
+
+    // Devuelve a la cola los escaneos que quedaron en curso porque la aplicación se reinició a mitad de camino.
+    public void requeueInterrupted() {
+        int requeued = scans.requeueRunning();
+        if (requeued > 0) {
+            log.info("Requeued {} scans interrupted by a restart", requeued);
+        }
     }
 
     // Encola el escaneo de las versiones que tienen SBOM pero ningún escaneo registrado.

@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -26,6 +27,8 @@ import io.cradesk.api.sbom.SbomRepository;
 
 @Service
 public class VersionScanner {
+
+    static final String INTERNAL_ERROR = "Internal error during scan";
 
     private static final Logger log = LoggerFactory.getLogger(VersionScanner.class);
 
@@ -80,9 +83,14 @@ public class VersionScanner {
             Map<String, OsvVulnerability> fetched = fetchChanged(hits);
             transactions.executeWithoutResult(status -> save(versionId, targets, hits, fetched));
         } catch (RuntimeException e) {
-            log.warn("Scan of version {} failed: {}", versionId, e.getMessage());
+            String reason = e instanceof ExternalServiceException ? e.getMessage() : INTERNAL_ERROR;
+            if (e instanceof ExternalServiceException) {
+                log.warn("Scan of version {} failed: {}", versionId, e.getMessage());
+            } else {
+                log.error("Scan of version {} failed", versionId, e);
+            }
             transactions.executeWithoutResult(status -> scans.findById(versionId)
-                    .ifPresent(scan -> scan.fail(clock.instant(), e.getMessage())));
+                    .ifPresent(scan -> scan.fail(clock.instant(), reason)));
         }
     }
 
@@ -99,15 +107,15 @@ public class VersionScanner {
             int notScanned = 0;
             for (var component : components.findAllBySbomId(sbom.getId())) {
                 String purl = component.getPurl();
-                if (purl != null && purl.contains("@")) {
+                if (hasVersion(purl)) {
                     byPurl.computeIfAbsent(purl, p -> new ArrayList<>()).add(component.getId());
                 } else {
                     notScanned++;
                 }
             }
             int scanned = byPurl.values().stream().mapToInt(List::size).sum();
-            return new Targets(byPurl, scanned, notScanned, null);
-        }).orElse(new Targets(Map.of(), 0, 0, "No SBOM uploaded for this version"));
+            return new Targets(sbom.getId(), byPurl, scanned, notScanned, null);
+        }).orElse(new Targets(null, Map.of(), 0, 0, "No SBOM uploaded for this version"));
     }
 
     // Descarga de OSV el detalle de las vulnerabilidades nuevas o modificadas desde la última vez.
@@ -122,19 +130,23 @@ public class VersionScanner {
             Vulnerability current = known.get(entry.getKey());
             if (current == null || !current.getModified().equals(micros(entry.getValue()))) {
                 OsvVulnerability detail = osv.fetch(entry.getKey());
-                if (detail == null) {
-                    throw new ExternalServiceException("OSV: no detail for " + entry.getKey());
+                if (detail != null) {
+                    fetched.put(entry.getKey(), detail);
                 }
-                fetched.put(entry.getKey(), detail);
             }
         }
         return fetched;
     }
 
-    // Guarda vulnerabilidades, recalcula coincidencias, actualiza hallazgos KEV y termina el escaneo.
+    // Si el SBOM sigue siendo el mismo, guarda vulnerabilidades, coincidencias y hallazgos y termina el escaneo.
     private void save(UUID versionId, Targets targets, Map<String, List<OsvHit>> hits,
             Map<String, OsvVulnerability> fetched) {
         Instant now = clock.instant();
+        UUID currentSbom = sboms.findLockedByProductVersionId(versionId).map(s -> s.getId()).orElse(null);
+        if (!targets.sbomId().equals(currentSbom)) {
+            scans.findById(versionId).ifPresent(scan -> scan.requeueIfRunning(now));
+            return;
+        }
         for (OsvVulnerability v : fetched.values()) {
             vulnerabilities.findById(v.id()).ifPresentOrElse(
                     existing -> existing.update(v.summary(), v.severity(), v.aliases(), v.published(), v.modified(),
@@ -153,8 +165,11 @@ public class VersionScanner {
         for (Map.Entry<String, List<OsvHit>> entry : hits.entrySet()) {
             for (UUID componentId : targets.byPurl().getOrDefault(entry.getKey(), List.of())) {
                 for (OsvHit hit : entry.getValue()) {
-                    matches.save(new VulnerabilityMatch(versionId, components.getReferenceById(componentId),
-                            byId.get(hit.id()), kevCveById.containsKey(hit.id())));
+                    Vulnerability vulnerability = byId.get(hit.id());
+                    if (vulnerability != null) {
+                        matches.save(new VulnerabilityMatch(versionId, components.getReferenceById(componentId),
+                                vulnerability, kevCveById.containsKey(hit.id())));
+                    }
                 }
             }
         }
@@ -162,25 +177,38 @@ public class VersionScanner {
         scans.findById(versionId).ifPresent(scan -> scan.finish(now, targets.scanned(), targets.notScanned()));
     }
 
-    // Crea los hallazgos KEV nuevos, marca vistos los que siguen y ausentes los que ya no aparecen.
+    // Crea un hallazgo por cada CVE de KEV nuevo, marca vistos los que siguen y ausentes los que ya no aparecen.
     private void updateFindings(UUID versionId, Map<String, Vulnerability> byId, Map<String, String> kevCveById,
             Instant now) {
         UUID organizationId = versions.findById(versionId).orElseThrow().getProduct().getOrganizationId();
         Map<String, Finding> existing = findings.findByProductVersionId(versionId).stream()
-                .collect(Collectors.toMap(f -> f.getVulnerability().getId(), Function.identity()));
-        for (Map.Entry<String, String> entry : kevCveById.entrySet()) {
-            Finding finding = existing.get(entry.getKey());
+                .collect(Collectors.toMap(Finding::getCveId, Function.identity()));
+        Map<String, Vulnerability> recordByCve = new TreeMap<>();
+        new TreeMap<>(kevCveById).forEach((vulnerabilityId, cve) ->
+                recordByCve.putIfAbsent(cve, byId.get(vulnerabilityId)));
+        recordByCve.forEach((cve, vulnerability) -> {
+            Finding finding = existing.get(cve);
             if (finding == null) {
-                findings.save(new Finding(organizationId, versionId, byId.get(entry.getKey()), entry.getValue(), now));
+                findings.save(new Finding(organizationId, versionId, vulnerability, cve, now));
             } else {
                 finding.seenAt(now);
             }
-        }
-        existing.forEach((vulnerabilityId, finding) -> {
-            if (!kevCveById.containsKey(vulnerabilityId)) {
+        });
+        existing.forEach((cve, finding) -> {
+            if (!recordByCve.containsKey(cve)) {
                 finding.markAbsent();
             }
         });
+    }
+
+    // Indica si el purl trae versión: una @ en el último segmento, antes de los calificadores.
+    static boolean hasVersion(String purl) {
+        if (purl == null) {
+            return false;
+        }
+        String path = purl.split("[?#]", 2)[0];
+        int lastSlash = path.lastIndexOf('/');
+        return lastSlash >= 0 && path.indexOf('@', lastSlash) > lastSlash + 1;
     }
 
     // Devuelve, para cada vulnerabilidad que está en KEV, el CVE por el que está.
@@ -206,6 +234,6 @@ public class VersionScanner {
         return instant.truncatedTo(ChronoUnit.MICROS);
     }
 
-    private record Targets(Map<String, List<UUID>> byPurl, int scanned, int notScanned, String error) {
+    private record Targets(UUID sbomId, Map<String, List<UUID>> byPurl, int scanned, int notScanned, String error) {
     }
 }

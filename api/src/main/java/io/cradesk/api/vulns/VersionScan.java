@@ -58,6 +58,13 @@ public class VersionScan {
         requestedAt = micros(now);
     }
 
+    // Vuelve a dejar pendiente un escaneo que estaba en curso, por ejemplo tras un reinicio o un SBOM reemplazado.
+    public void requeueIfRunning(Instant now) {
+        if (status == ScanStatus.RUNNING) {
+            request(now);
+        }
+    }
+
     // Marca el escaneo como en curso desde ese instante.
     public void start(Instant now) {
         status = ScanStatus.RUNNING;

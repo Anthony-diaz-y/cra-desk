@@ -119,6 +119,17 @@ class ScanSchedulerIT {
         assertThat(scanStatus(otherWithSbom)).isEqualTo("DONE");
     }
 
+    // Comprueba que al arrancar los escaneos que quedaron en curso por un reinicio vuelven a la cola.
+    @Test
+    void startupRequeuesScansInterruptedByARestart() {
+        jdbc.update("UPDATE version_scans SET status = 'RUNNING' WHERE product_version_id = ?",
+                UUID.fromString(withSbom));
+
+        scheduler.requeueInterrupted();
+
+        assertThat(scanStatus(withSbom)).isEqualTo("PENDING");
+    }
+
     // Comprueba que con el planificador desactivado (como en los tests) la tarea programada no escanea nada.
     @Test
     void disabledSchedulerDoesNothing() {

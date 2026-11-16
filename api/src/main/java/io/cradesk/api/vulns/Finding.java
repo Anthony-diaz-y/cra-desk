@@ -20,7 +20,7 @@ import jakarta.persistence.Table;
 @Table(name = "findings")
 public class Finding {
 
-    public static final String VERSION_VULN_UNIQUE = "findings_version_vuln_unique";
+    public static final String VERSION_CVE_UNIQUE = "findings_version_cve_unique";
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -56,7 +56,7 @@ public class Finding {
     protected Finding() {
     }
 
-    // Crea un hallazgo para revisar: una vulnerabilidad KEV presente en una versión de producto.
+    // Crea un hallazgo para revisar: un CVE de KEV presente en una versión, con un registro de OSV que lo describe.
     public Finding(UUID organizationId, UUID productVersionId, Vulnerability vulnerability, String cveId,
             Instant now) {
         this.organizationId = organizationId;
