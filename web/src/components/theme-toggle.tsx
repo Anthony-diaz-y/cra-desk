@@ -1,27 +1,38 @@
 "use client";
 
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
-
-const ORDER = ["light", "dark", "system"] as const;
+import { cn } from "@/lib/utils";
 
 // Suscripción vacía: solo sirve para saber si ya se está renderizando en el navegador.
 function subscribeNothing() {
   return () => {};
 }
 
-// Botón que alterna entre tema claro, oscuro y el del sistema.
+// Botón que alterna entre tema claro y oscuro. El icono muestra siempre el modo activo: sol o luna.
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const mounted = useSyncExternalStore(subscribeNothing, () => true, () => false);
-  const current = mounted ? ((theme as (typeof ORDER)[number]) ?? "system") : "system";
-  const next = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length];
-  const Icon = current === "light" ? Sun : current === "dark" ? Moon : Monitor;
+  const isDark = mounted && resolvedTheme === "dark";
+  const label = isDark ? "Switch to light theme" : "Switch to dark theme";
   return (
-    <Button variant="ghost" size="icon" aria-label={`Theme: ${current}. Switch to ${next}`} onClick={() => setTheme(next)}>
-      <Icon className="size-4" />
+    <Button variant="ghost" size="icon" aria-label={label} title={label} onClick={() => setTheme(isDark ? "light" : "dark")}>
+      <span className="relative grid size-4 place-items-center">
+        <Sun
+          className={cn(
+            "size-4 transition-all duration-300",
+            isDark ? "-rotate-90 scale-0 opacity-0" : "rotate-0 scale-100 opacity-100",
+          )}
+        />
+        <Moon
+          className={cn(
+            "absolute size-4 transition-all duration-300",
+            isDark ? "rotate-0 scale-100 opacity-100" : "rotate-90 scale-0 opacity-0",
+          )}
+        />
+      </span>
     </Button>
   );
 }
