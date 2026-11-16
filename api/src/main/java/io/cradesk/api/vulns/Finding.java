@@ -52,6 +52,15 @@ public class Finding {
     @Column(name = "last_seen_at", nullable = false)
     private Instant lastSeenAt;
 
+    @Column(name = "reviewed_at")
+    private Instant reviewedAt;
+
+    @Column(name = "reviewed_by")
+    private UUID reviewedBy;
+
+    @Column(name = "dismiss_reason", length = 1000)
+    private String dismissReason;
+
     // Constructor vacío que JPA necesita para cargar hallazgos desde la base de datos.
     protected Finding() {
     }
@@ -73,6 +82,35 @@ public class Finding {
     public void seenAt(Instant now) {
         present = true;
         lastSeenAt = now.truncatedTo(ChronoUnit.MICROS);
+    }
+
+    // Indica si el hallazgo todavía espera la revisión de una persona.
+    public boolean isPendingReview() {
+        return status == FindingStatus.PENDING_REVIEW;
+    }
+
+    // Marca el hallazgo como confirmado por esa persona en ese instante.
+    public void confirm(Instant now, UUID userId) {
+        requirePending();
+        status = FindingStatus.CONFIRMED;
+        reviewedAt = now.truncatedTo(ChronoUnit.MICROS);
+        reviewedBy = userId;
+    }
+
+    // Marca el hallazgo como descartado por esa persona con el motivo indicado.
+    public void dismiss(Instant now, UUID userId, String reason) {
+        requirePending();
+        status = FindingStatus.DISMISSED;
+        reviewedAt = now.truncatedTo(ChronoUnit.MICROS);
+        reviewedBy = userId;
+        dismissReason = reason;
+    }
+
+    // Exige que el hallazgo siga pendiente de revisión.
+    private void requirePending() {
+        if (!isPendingReview()) {
+            throw new IllegalStateException("Finding " + id + " was already reviewed");
+        }
     }
 
     // Registra que el último escaneo ya no encontró la vulnerabilidad, sin borrar el hallazgo.
@@ -123,5 +161,20 @@ public class Finding {
     // Devuelve la última vez que un escaneo encontró la vulnerabilidad.
     public Instant getLastSeenAt() {
         return lastSeenAt;
+    }
+
+    // Devuelve cuándo se revisó el hallazgo, o null si sigue pendiente.
+    public Instant getReviewedAt() {
+        return reviewedAt;
+    }
+
+    // Devuelve quién revisó el hallazgo, o null si sigue pendiente.
+    public UUID getReviewedBy() {
+        return reviewedBy;
+    }
+
+    // Devuelve el motivo del descarte, o null si no se descartó.
+    public String getDismissReason() {
+        return dismissReason;
     }
 }

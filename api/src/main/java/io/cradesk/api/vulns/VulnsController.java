@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -32,9 +33,9 @@ public class VulnsController {
         return ResponseEntity.accepted().build();
     }
 
-    // Lista los hallazgos pendientes de revisión de la empresa.
+    // Lista los hallazgos de la empresa con ese estado (por defecto, los pendientes de revisión).
     @GetMapping("/api/findings")
-    public List<FindingResponse> findings() {
-        return vulns.findings();
+    public List<FindingResponse> findings(@RequestParam(defaultValue = "PENDING_REVIEW") FindingStatus status) {
+        return vulns.findings(status);
     }
 }

@@ -46,6 +46,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("PLATFORM_ADMIN")
                         .requestMatchers("/api/api-keys/**").hasRole("MEMBER")
                         .requestMatchers("/api/auth/me").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/findings/**", "/api/events/**").hasRole("MEMBER")
+                        .requestMatchers(HttpMethod.PUT, "/api/events/**").hasRole("MEMBER")
                         .requestMatchers(HttpMethod.GET, "/api/**").hasAnyRole("MEMBER", "DEMO", "CLI")
                         .requestMatchers("/api/**").hasAnyRole("MEMBER", "CLI")
                         .anyRequest().denyAll());

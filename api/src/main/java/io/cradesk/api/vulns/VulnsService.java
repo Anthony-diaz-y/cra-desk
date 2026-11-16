@@ -81,11 +81,11 @@ public class VulnsService {
         queue.request(version.getId());
     }
 
-    // Lista los hallazgos pendientes de revisión de la empresa actual, del más reciente al más antiguo.
+    // Lista los hallazgos de la empresa actual con ese estado, del más reciente al más antiguo.
     @Transactional(readOnly = true)
-    public List<FindingResponse> findings() {
+    public List<FindingResponse> findings(FindingStatus status) {
         List<Finding> pending = findings.findByOrganizationIdAndStatusOrderByCreatedAtDesc(tenant.organizationId(),
-                FindingStatus.PENDING_REVIEW);
+                status);
         Map<String, LocalDate> kevDates = kevDates(pending.stream().map(Finding::getCveId).toList());
         return pending.stream().map(f -> {
             ProductVersion version = versions.findById(f.getProductVersionId()).orElseThrow();
