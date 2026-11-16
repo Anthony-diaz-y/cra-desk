@@ -20,18 +20,21 @@ function localNow(): string {
 export function MarkSentDialog({ eventId, type, onSent }: { eventId: string; type: ReportType; onSent: (report: Report) => void }) {
   const [open, setOpen] = useState(false);
   const [sentAt, setSentAt] = useState("");
+  const [opened, setOpened] = useState("");
   const [reference, setReference] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sending, setSending] = useState(false);
 
   // Abre el diálogo con la hora actual ya cargada.
   function show() {
-    setSentAt(localNow());
+    const now = localNow();
+    setSentAt(now);
+    setOpened(now);
     setErrors({});
     setOpen(true);
   }
 
-  // Envía la hora (convertida a UTC) y la referencia a la API.
+  // Envía la hora (convertida a UTC) y la referencia; si no se cambió la hora propuesta, la API usa su hora actual.
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSending(true);
@@ -39,7 +42,7 @@ export function MarkSentDialog({ eventId, type, onSent }: { eventId: string; typ
     try {
       const saved = await apiFetch<Report>(`/api/events/${eventId}/reports/${type}/sent`, {
         method: "POST",
-        json: { sentAt: sentAt ? new Date(sentAt).toISOString() : null, enisaReference: reference.trim() || null },
+        json: { sentAt: sentAt && sentAt !== opened ? new Date(sentAt).toISOString() : null, enisaReference: reference.trim() || null },
       });
       setOpen(false);
       onSent(saved);

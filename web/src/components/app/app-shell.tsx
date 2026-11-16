@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import { Menu } from "lucide-react";
 import { SessionProvider } from "@/lib/session";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -12,7 +12,7 @@ import { DemoBanner } from "./demo-banner";
 import { SidebarNav } from "./sidebar";
 import { UserMenu } from "./user-menu";
 
-// Estructura de la app: barra lateral (hoja en móvil), cabecera, franja de demo y transición entre páginas.
+// Estructura de la app: barra lateral (hoja en móvil), cabecera, franja de demo y animación de entrada de cada página.
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -39,12 +39,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               <UserMenu />
             </div>
           </header>
-          <AnimatePresence mode="wait">
-            <motion.main key={pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }} className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
-              {children}
-            </motion.main>
-          </AnimatePresence>
+          <motion.main key={pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }} className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+            {children}
+          </motion.main>
         </div>
       </div>
     </SessionProvider>

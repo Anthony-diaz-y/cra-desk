@@ -15,7 +15,7 @@ Compliance desk for the **EU Cyber Resilience Act** (Regulation (EU) 2024/2847),
 |---|---|
 | `api/` | Spring Boot (Java 21) modular monolith + PostgreSQL |
 | `cli/` | `cradesk` CLI in Go |
-| `web/` | Next.js + TypeScript frontend |
+| `web/` | Next.js 16 web app: landing page, sign-in and the app (Tailwind, shadcn/ui, Motion, TanStack Query) |
 | `docs/` | Design, plans, decisions |
 
 ## Status
@@ -29,7 +29,8 @@ Compliance desk for the **EU Cyber Resilience Act** (Regulation (EU) 2024/2847),
 | 4 | Vulnerability monitoring: OSV matching, CISA KEV catalog, findings to review, scan queue and daily rescan | ✅ |
 | 5 | `cradesk` Go CLI (login, upload, wait, fail on KEV) and GitHub Action | ✅ 175 API tests + Go tests |
 | 6 | Reporting: finding review, CRA 24 h / 72 h / 14 d clocks, AI or template drafts, approval, sent to ENISA, JSON/Markdown export; hash-chained audit log | ✅ 244 API tests |
-| 7–9 | Web, DevOps, polish | planned |
+| 7 | Web: animated landing page, read-only demo, products and SBOM upload, findings review, live CRA clocks, report editor, audit log, API keys; strict nonce CSP | ✅ 54 web tests + 2 end-to-end flows |
+| 8–9 | DevOps, polish | planned |
 
 ## Local development
 
@@ -40,6 +41,9 @@ cd api && ./mvnw verify     # all tests (needs Docker: Testcontainers)
 
 # Spring Boot does not read .env: export it, then start the API on http://localhost:8080
 set -a && . ../.env && set +a && ./mvnw spring-boot:run
+
+# In another terminal: the web app on http://localhost:3000 (proxies /api to the API)
+cd web && npm install && npm run dev
 ```
 
 | Variable | Purpose | Default |
@@ -58,6 +62,7 @@ set -a && . ../.env && set +a && ./mvnw spring-boot:run
 | `CRADESK_AI_API_KEY` | Key for `openai-compatible` (keep it in `.env`, never in git) | empty |
 | `ANTHROPIC_API_KEY` | Key for `claude` | empty |
 | `CRADESK_AI_DAILY_LIMIT` | AI drafts per organization per UTC day; then 429 (`?ai=false` still works) | `20` |
+| `CRADESK_API_URL` | Where the web app proxies `/api/*` (read when the web app is built and started) | `http://localhost:8080` |
 
 ### Live demo
 
@@ -138,6 +143,24 @@ Prebuilt binaries for Linux, macOS and Windows (amd64/arm64) are attached to Git
 - **Human in the loop:** drafts are edited, approved by a member, and marked sent by a member; editing an approved draft takes the approval away. CRA Desk does not submit anything to ENISA; it prepares the text and keeps the record. It is a support tool, not legal advice.
 - **Audit:** every review, draft, edit, approval, sent mark, SBOM upload and API key change is written to an append-only log (a database trigger rejects `UPDATE` and `DELETE`). Each organization has its own SHA-256 hash chain; `GET /api/audit/verify` recomputes it and points to the first altered entry.
 
+## Web
+
+The web app lives in `web/` and is served on the same origin as the API: Next.js rewrites `/api/*` to `CRADESK_API_URL`, so the session cookie and CSRF token work without CORS.
+
+- `/` landing page with a live 24-hour countdown, the three Article 14 deadlines, "Try the demo" and "Request access".
+- `/login`, `/invite?code=…` (create the company and account from an invitation).
+- `/app` deadlines with live clocks · `/app/products` products, versions, drag-and-drop SBOM upload, components and vulnerabilities (KEV first) · `/app/findings` confirm or dismiss · `/app/events/{id}` report editor (AI or template draft, edit, approve, mark sent, export) · `/app/audit` log and chain verification · `/app/settings` API keys.
+- The demo session sees everything; write actions are disabled.
+
+```bash
+cd web
+npm test              # unit and component tests (Vitest + Testing Library)
+npm run typecheck && npm run lint && npm run build
+bash ../scripts/e2e.sh   # end-to-end with Playwright (needs Docker)
+```
+
+`scripts/e2e.sh` recreates a separate `cradesk_e2e` database, starts a fake OSV + CISA KEV server, the API (port 8081) and the production web build (port 3100), and runs two flows: a visitor exploring the demo, and an invited manufacturer going from SBOM upload to an approved, sent and exported early warning with a valid audit chain. It never calls OSV, CISA or an AI provider.
+
 ## Security model
 
 - **Browser:** JSON login with an HttpOnly, SameSite=Lax session cookie (8 h); CSRF via the `XSRF-TOKEN` cookie and the `X-XSRF-TOKEN` header (logout clears the token: call `GET /api/auth/csrf` again). Five failed logins lock an account for 15 minutes; unknown email and wrong password get the same answer.
@@ -145,6 +168,7 @@ Prebuilt binaries for Linux, macOS and Windows (amd64/arm64) are attached to Git
 - **Tenancy:** every catalog query is scoped to the caller's organization; another organization's ids return 404.
 - **Accounts:** created only through single-use, 7-day invitations issued by the platform admin. Passwords are BCrypt-hashed.
 - **Demo:** a read-only role; every write is 403.
+- **Web:** a fresh nonce per request in a strict Content-Security-Policy (`script-src 'self' 'nonce-…' 'strict-dynamic'`, no inline or eval scripts in production, `frame-ancestors 'none'`), plus `nosniff`, `Referrer-Policy` and `Permissions-Policy`. No tokens in browser storage; a new API key is shown once and kept only in memory. The login `next` parameter only accepts app paths.
 
 ## API
 

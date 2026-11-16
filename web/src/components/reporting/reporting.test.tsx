@@ -8,6 +8,7 @@ import type { AiStatus, Report } from "@/lib/types";
 import { DeadlineClock } from "./deadline-clock";
 import { ReportEditor } from "./report-editor";
 import { DismissDialog } from "./dismiss-dialog";
+import { MarkSentDialog } from "./mark-sent-dialog";
 
 const AI_ON: AiStatus = { available: true, provider: "OPENAI_COMPATIBLE", model: "deepseek-chat", dailyLimit: 20, remainingToday: 19 };
 const AI_OFF: AiStatus = { available: false, provider: "TEMPLATE", model: "", dailyLimit: 20, remainingToday: 20 };
@@ -161,5 +162,23 @@ describe("DismissDialog", () => {
 
     expect(await screen.findByText(/at least 10 characters/i)).toBeInTheDocument();
     expect(callsTo(spy, "POST", "/api/findings/f1/dismiss")).toHaveLength(0);
+  });
+});
+
+describe("MarkSentDialog", () => {
+  beforeEach(() => resetNavigation());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("defaultTimeLetsTheServerUseNow", async () => {
+    const spy = mockApi([{ method: "POST", path: `${REPORT_URL}/sent`, body: report({ sentAt: "2026-11-16T10:00:00Z" }) }]);
+    const onSent = vi.fn();
+    renderWithSession(<MarkSentDialog eventId="e1" type="EARLY_WARNING" onSent={onSent} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /mark as sent/i }));
+    await userEvent.type(await screen.findByLabelText(/enisa reference/i), "ENISA-1");
+    await userEvent.click(screen.getByRole("button", { name: /confirm sent/i }));
+
+    await vi.waitFor(() => expect(onSent).toHaveBeenCalled());
+    expect(callsTo(spy, "POST", `${REPORT_URL}/sent`)[0].json).toEqual({ sentAt: null, enisaReference: "ENISA-1" });
   });
 });
