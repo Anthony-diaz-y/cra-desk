@@ -1,6 +1,8 @@
 spring:
   application:
     name: cra-desk-api
+  config:
+    import: optional:file:${CRADESK_ENV_FILE:../.env}[.properties]
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/cradesk}
     username: ${DATABASE_USER:cradesk}

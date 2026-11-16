@@ -39,8 +39,8 @@ cp .env.example .env        # set POSTGRES_PASSWORD and CRADESK_ADMIN_TOKEN (e.g
 docker compose up -d        # PostgreSQL 17 on 127.0.0.1:5432
 cd api && ./mvnw verify     # all tests (needs Docker: Testcontainers)
 
-# Spring Boot does not read .env: export it, then start the API on http://localhost:8080
-set -a && . ../.env && set +a && ./mvnw spring-boot:run
+# Start the API on http://localhost:8080 (it reads ../.env by itself)
+./mvnw spring-boot:run
 
 # In another terminal: the web app on http://localhost:3000 (proxies /api to the API)
 cd web && npm install && npm run dev
@@ -49,6 +49,7 @@ cd web && npm install && npm run dev
 | Variable | Purpose | Default |
 |---|---|---|
 | `POSTGRES_PASSWORD` / `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` | Database connection | local compose database |
+| `CRADESK_ENV_FILE` | Optional properties file the API imports for local development; real environment variables take precedence, and tests skip it | `../.env` |
 | `CRADESK_ADMIN_TOKEN` | Platform admin token (`X-Admin-Token`), at least 32 characters; empty disables admin endpoints | empty |
 | `CRADESK_DEMO_ENABLED` | Seed the read-only demo account on startup | `true` |
 | `SESSION_COOKIE_SECURE` | Send the session cookie only over HTTPS (set `true` in production) | `false` |
