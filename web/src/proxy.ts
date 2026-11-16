@@ -1,8 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildCsp } from "@/lib/csp";
+import { loginRedirect } from "@/lib/routes";
 
-// Genera un nonce por petición, lo pone en la CSP de la respuesta y se lo pasa al render en x-nonce.
+// Manda /app al login si no hay cookie de sesión; si no, genera el nonce de la CSP y se lo pasa al render.
 export function proxy(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+  if ((pathname === "/app" || pathname.startsWith("/app/")) && !request.cookies.has("JSESSIONID")) {
+    return NextResponse.redirect(new URL(loginRedirect(pathname + search), request.url));
+  }
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   const nonce = btoa(String.fromCharCode(...bytes));
