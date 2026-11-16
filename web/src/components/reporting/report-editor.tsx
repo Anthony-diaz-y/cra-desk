@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, FileText, Loader2, Save, Sparkles, TriangleAlert } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, PenLine, Save, Sparkles, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError, apiFetch } from "@/lib/api";
 import { fieldLabel, dateTime } from "@/lib/format";
@@ -48,6 +48,7 @@ export function ReportEditor({ eventId, report, ai }: { eventId: string; report:
   const readOnly = sent || isDemo;
   const dirty = JSON.stringify(values) !== JSON.stringify(report.content ?? {});
   const fields = Object.keys(values);
+  const pendingCount = fields.filter((field) => (values[field] ?? "").trim() === PENDING_TEXT).length;
 
   // Guarda el reporte devuelto por la API en la caché y refresca el evento.
   async function applied(updated: Report) {
@@ -100,70 +101,91 @@ export function ReportEditor({ eventId, report, ai }: { eventId: string; report:
   return (
     <div className="grid gap-5">
       {!sent && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/25 p-3">
           {ai?.available && (
-            <Button onClick={() => requestDraft(true)} disabled={isDemo || !!busy || ai.remainingToday === 0} className="gap-1.5 bg-brand text-brand-foreground hover:bg-brand/90">
+            <Button onClick={() => requestDraft(true)} disabled={isDemo || !!busy || ai.remainingToday === 0} className="gap-1.5 bg-brand text-brand-foreground shadow-sm shadow-brand/20 hover:bg-brand/90">
               {busy === "ai" ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
               Generate with AI ({ai.remainingToday} left today)
             </Button>
           )}
-          <Button variant="outline" onClick={() => requestDraft(false)} disabled={isDemo || !!busy} className="gap-1.5">
+          <Button variant="outline" onClick={() => requestDraft(false)} disabled={isDemo || !!busy} className="gap-1.5 bg-background/60">
             {busy === "template" ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
             Use template
           </Button>
-          {report.generatedBy && <span className="text-sm text-muted-foreground">{authorLabel(report)}</span>}
+          {report.generatedBy && (
+            <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-2.5 py-1 text-xs text-muted-foreground">
+              <PenLine className="size-3" /> {authorLabel(report)}
+            </span>
+          )}
         </div>
       )}
 
       {report.aiError && !sent && (
-        <p role="status" className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
+        <p role="status" className="flex items-start gap-2 rounded-xl border border-warning/35 bg-warning/[0.07] px-3.5 py-2.5 text-sm">
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
           <span>The AI draft failed ({report.aiError}), so this draft comes from the template.</span>
         </p>
       )}
-      {notice && <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">{notice}</p>}
+      {notice && <p role="alert" className="rounded-xl border border-danger/25 bg-danger/[0.07] px-3.5 py-2.5 text-sm text-danger">{notice}</p>}
 
       {fields.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          No draft yet. Generate one{ai?.available ? " with AI or" : ""} from the template, then review every field.
-        </p>
-      ) : (
-        <div className="grid gap-4">
-          {fields.map((field) => {
-            const value = values[field] ?? "";
-            const pending = value.trim() === PENDING_TEXT;
-            return (
-              <div key={field} className="grid gap-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor={`${report.type}-${field}`}>{fieldLabel(field)}</Label>
-                  {pending && <span className="rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-foreground">Needs your input</span>}
-                </div>
-                <Textarea id={`${report.type}-${field}`} value={value} readOnly={readOnly} maxLength={MAX_FIELD} rows={3}
-                  aria-invalid={!!errors[field]}
-                  onChange={(e) => setValues((current) => ({ ...current, [field]: e.target.value }))}
-                  className={cn("leading-relaxed", pending && "border-warning/60 bg-warning/5", readOnly && "bg-muted/30")} />
-                <div className="flex justify-between text-xs">
-                  <span className="text-danger">{errors[field]}</span>
-                  {!readOnly && <span className="text-muted-foreground tabular">{value.length}/{MAX_FIELD}</span>}
-                </div>
-              </div>
-            );
-          })}
+        <div className="flex flex-col items-center rounded-2xl border border-dashed border-border/80 bg-muted/15 px-6 py-12 text-center">
+          <span className="grid size-11 place-items-center rounded-2xl bg-brand/10 text-brand">
+            <FileText className="size-5" />
+          </span>
+          <p className="mt-4 max-w-sm text-sm text-muted-foreground">
+            No draft yet. Generate one{ai?.available ? " with AI or" : ""} from the template, then review every field.
+          </p>
         </div>
+      ) : (
+        <>
+          {pendingCount > 0 && (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="inline-flex size-1.5 rounded-full bg-warning" />
+              {pendingCount} {pendingCount === 1 ? "field needs" : "fields need"} your input before approval.
+            </p>
+          )}
+          <div className="grid gap-5">
+            {fields.map((field) => {
+              const value = values[field] ?? "";
+              const pending = value.trim() === PENDING_TEXT;
+              return (
+                <div key={field} className="grid gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor={`${report.type}-${field}`} className="text-[13px]">{fieldLabel(field)}</Label>
+                    {pending && <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-medium text-foreground">Needs your input</span>}
+                  </div>
+                  <Textarea id={`${report.type}-${field}`} value={value} readOnly={readOnly} maxLength={MAX_FIELD} rows={3}
+                    aria-invalid={!!errors[field]}
+                    onChange={(e) => setValues((current) => ({ ...current, [field]: e.target.value }))}
+                    className={cn("resize-y bg-background/50 leading-relaxed transition-colors", pending && "border-warning/50 bg-warning/[0.04]", readOnly && "bg-muted/30", errors[field] && "border-danger/60")} />
+                  <div className="flex justify-between gap-3 text-xs">
+                    <span className="text-danger">{errors[field]}</span>
+                    {!readOnly && <span className="shrink-0 text-muted-foreground tabular">{value.length}/{MAX_FIELD}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {fields.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
           <div className="text-sm text-muted-foreground">
             {sent ? (
-              <span className="inline-flex items-center gap-1.5 text-success"><CheckCircle2 className="size-4" /> Sent {dateTime(report.sentAt)}{report.enisaReference ? ` · ${report.enisaReference}` : ""}</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/10 px-2.5 py-1 text-xs font-medium text-success"><CheckCircle2 className="size-3.5" /> Sent {dateTime(report.sentAt)}{report.enisaReference ? ` · ${report.enisaReference}` : ""}</span>
             ) : report.draftStatus === "APPROVED" ? (
-              <span className="inline-flex items-center gap-1.5 text-success"><CheckCircle2 className="size-4" /> Approved {dateTime(report.approvedAt)}</span>
-            ) : dirty ? "Unsaved changes" : "Draft — review it, then approve"}
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/10 px-2.5 py-1 text-xs font-medium text-success"><CheckCircle2 className="size-3.5" /> Approved {dateTime(report.approvedAt)}</span>
+            ) : dirty ? (
+              <span className="inline-flex items-center gap-1.5 text-xs"><span className="size-1.5 rounded-full bg-warning" /> Unsaved changes</span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-xs"><span className="size-1.5 rounded-full bg-brand" /> Draft — review it, then approve</span>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             {!sent && (
-              <Button variant="outline" disabled={isDemo || !dirty || !!busy} className="gap-1.5"
+              <Button variant="outline" disabled={isDemo || !dirty || !!busy} className="gap-1.5 bg-background/60"
                 onClick={() => run("save", () => apiFetch<Report>(url, { method: "PUT", json: { content: values } }), "Draft saved")}>
                 {busy === "save" ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Save
               </Button>

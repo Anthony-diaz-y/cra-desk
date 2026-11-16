@@ -27,6 +27,13 @@ const TONE_STROKE: Record<Tone, string> = {
   success: "stroke-success",
 };
 
+const TONE_HALO: Record<Tone, string> = {
+  neutral: "ring-brand/10",
+  warning: "ring-warning/15",
+  danger: "ring-danger/15",
+  success: "ring-success/15",
+};
+
 type Props = {
   dueAt: string;
   startAt: string;
@@ -52,8 +59,8 @@ export function DeadlineClock({
   const progress = sent ? 1 : Math.min(1, Math.max(0, left / total));
   const ring = size === "lg" ? "size-28" : "size-16";
   return (
-    <div className="flex items-center gap-4">
-      <div className={cn("relative shrink-0", ring)}>
+    <div className={cn("flex items-center gap-4", size === "lg" && "flex-col gap-4 text-center")}>
+      <div className={cn("relative shrink-0 rounded-full ring-[3px]", ring, TONE_HALO[tone])}>
         <svg
           viewBox="0 0 64 64"
           className="size-full -rotate-90"
@@ -86,17 +93,17 @@ export function DeadlineClock({
           />
         )}
       </div>
-      <div className="min-w-0">
+      <div className={cn("min-w-0", size === "lg" && "flex flex-col items-center")}>
         <p
           className={cn(
-            "text-xs font-medium uppercase tracking-wide",
+            "text-[10px] font-semibold uppercase tracking-[0.12em]",
             TONE_TEXT[tone],
           )}
         >
           {statusLabel(live)}
         </p>
         {sent ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-muted-foreground">
             Sent {dateTime(sentAt)}
           </p>
         ) : (
@@ -104,7 +111,7 @@ export function DeadlineClock({
             role="timer"
             aria-live="off"
             className={cn(
-              "font-mono font-semibold tabular",
+              "mt-0.5 whitespace-nowrap font-mono font-semibold tabular tracking-tight",
               size === "lg" ? "text-3xl" : "text-lg",
               TONE_TEXT[tone],
             )}
@@ -112,7 +119,7 @@ export function DeadlineClock({
             {formatRemaining(left)}
           </p>
         )}
-        <p className="text-xs text-muted-foreground">Due {dateTime(dueAt)}</p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">Due {dateTime(dueAt)}</p>
       </div>
     </div>
   );
