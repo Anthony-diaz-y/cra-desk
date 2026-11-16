@@ -124,6 +124,21 @@ public class ProductService {
                 .orElseThrow(() -> new VersionNotFoundException(versionId));
     }
 
+    // Busca producto y versión por nombre en la empresa actual y crea la versión si falta y se permite.
+    @Transactional
+    public ProductVersion resolveVersionByName(String productName, String version, boolean create) {
+        String name = Names.normalizeName(productName);
+        String text = version.strip();
+        Product product = products.findLockedByNameInOrganization(tenant.organizationId(), name)
+                .orElseThrow(() -> new ProductNotFoundByNameException(name));
+        return versions.findByProductIdAndVersion(product.getId(), text).orElseGet(() -> {
+            if (!create) {
+                throw new VersionNotFoundByNameException(text, product.getName());
+            }
+            return versions.saveAndFlush(new ProductVersion(product, text, null));
+        });
+    }
+
     // Devuelve la versión de un producto de la empresa actual, o lanza 404 si alguno no existe.
     @Transactional(readOnly = true)
     public ProductVersion findVersion(UUID productId, UUID versionId) {

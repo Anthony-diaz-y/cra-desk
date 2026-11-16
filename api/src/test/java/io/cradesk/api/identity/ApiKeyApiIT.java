@@ -88,6 +88,17 @@ class ApiKeyApiIT {
         assertThat(jdbc.queryForObject("SELECT last_used_at FROM api_keys", Object.class)).isNotNull();
     }
 
+    // Comprueba que con una clave se puede consultar a qué empresa pertenece, como hace cradesk login.
+    @Test
+    void keyCanReadMe() throws Exception {
+        String key = newKey(acme);
+
+        anonymous.perform(get("/api/auth/me").header("Authorization", "Bearer " + key))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.organizationName").value("Acme"))
+                .andExpect(jsonPath("$.role").value("CLI"));
+    }
+
     // Comprueba que con una clave no se pueden crear otras claves.
     @Test
     void keyCannotManageKeys() throws Exception {

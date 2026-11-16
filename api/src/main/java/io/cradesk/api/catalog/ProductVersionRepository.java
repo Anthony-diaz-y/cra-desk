@@ -17,6 +17,9 @@ public interface ProductVersionRepository extends JpaRepository<ProductVersion, 
     // Indica si el producto ya tiene esa versión.
     boolean existsByProductIdAndVersion(UUID productId, String version);
 
+    // Busca una versión de un producto por su texto exacto.
+    Optional<ProductVersion> findByProductIdAndVersion(UUID productId, String version);
+
     // Indica si el producto tiene al menos una versión.
     boolean existsByProductId(UUID productId);
 }

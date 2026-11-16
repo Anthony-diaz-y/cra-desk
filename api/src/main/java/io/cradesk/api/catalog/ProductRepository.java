@@ -23,6 +23,12 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     Optional<Product> findLockedByIdAndOrganizationId(@Param("id") UUID id,
             @Param("organizationId") UUID organizationId);
 
+    // Busca un producto de esa empresa por nombre sin distinguir mayúsculas y bloquea su fila.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Product p where p.organizationId = :organizationId and lower(p.name) = lower(:name)")
+    Optional<Product> findLockedByNameInOrganization(@Param("organizationId") UUID organizationId,
+            @Param("name") String name);
+
     // Lista los productos de una empresa con el orden indicado.
     List<Product> findAllByOrganizationId(UUID organizationId, Sort sort);
 

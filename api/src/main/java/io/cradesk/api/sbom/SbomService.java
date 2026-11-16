@@ -35,6 +35,7 @@ public class SbomService {
     static final MediaType CYCLONEDX_JSON = MediaType.parseMediaType("application/vnd.cyclonedx+json");
     static final List<MediaType> ACCEPTED = List.of(MediaType.APPLICATION_JSON, CYCLONEDX_JSON);
     static final int MAX_PAGE_SIZE = 200;
+    static final int MAX_VERSION_LENGTH = 64;
     static final Sort BY_NAME_AND_VERSION = Sort.by("name", "version");
 
     private final CycloneDxParser parser;
@@ -71,6 +72,34 @@ public class SbomService {
         return transactions.execute(status -> {
             ProductVersion version = products.lockVersion(productId, versionId);
             return store(productId, version.getId(), document, parsed, principal.userId(), channel);
+        });
+    }
+
+    // Sube el SBOM por nombre de producto y versión, creando la versión si falta y se permite.
+    public UploadResult uploadByName(String product, String version, boolean createVersion, InputStream body,
+            String contentType) throws IOException, HttpMediaTypeNotSupportedException {
+        requireCycloneDxJson(contentType);
+        Map<String, String> errors = new LinkedHashMap<>();
+        if (product == null || product.isBlank()) {
+            errors.put("product", "must not be blank");
+        }
+        if (version == null || version.isBlank()) {
+            errors.put("version", "must not be blank");
+        } else if (version.strip().length() > MAX_VERSION_LENGTH) {
+            errors.put("version", "must be at most " + MAX_VERSION_LENGTH + " characters");
+        }
+        if (!errors.isEmpty()) {
+            throw new InvalidUploadTargetException(errors);
+        }
+        byte[] document = readLimited(body);
+        ParsedSbom parsed = parser.parse(document);
+        TenantPrincipal principal = tenant.principal();
+        UploadChannel channel = principal.role() == AccessRole.CLI ? UploadChannel.CLI : UploadChannel.WEB;
+        ProductVersion resolved = products.resolveVersionByName(product, version, createVersion);
+        UUID productId = resolved.getProduct().getId();
+        return transactions.execute(status -> {
+            ProductVersion locked = products.lockVersion(productId, resolved.getId());
+            return store(productId, locked.getId(), document, parsed, principal.userId(), channel);
         });
     }
 
